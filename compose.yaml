@@ -1,0 +1,29 @@
+networks:
+  frontend:
+    external: true
+  backend:
+    external: true
+services:
+  kolibri:
+    platform: linux/arm64/v8
+    image: powerberries/kolibri:0.15.5
+    # build: ./build
+    # Command overwrites
+    # command:  tail -f /dev/null  # Use this to start the container and keep it running - allows you to enter using docker exec
+    # container_name: kolibri      # Do not use container names, because we might want to create other instances (under another project name)
+    restart: unless-stopped
+    pull_policy: {pull_policy}
+    volumes:
+      - ./data:/root/.kolibri
+    networks:
+      - frontend
+      - backend
+    labels:
+      - "append=true"
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      # Route http://kolibri.{server_hostname}.{server_hostname}
+      - "traefik.http.routers.kolibri.entrypoints=web"
+      - "traefik.http.routers.kolibri.rule=Host(`kolibri.{server_hostname}.{server_domain}`)"
+      - "traefik.http.routers.kolibri.service=kolibri"
+      - "traefik.http.services.kolibri.loadbalancer.server.port=8080"
