@@ -1,3 +1,20 @@
+x-meta:
+  app: kolibri
+
+  # Catalog data
+  title: Kolibri
+  description: |
+    Kolibri is an adaptable set of open solutions specially developed to support learning for the half of the world without Internet access. 
+    Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
+  url: https://learningequality.org/kolibri/
+
+  # Version info
+  majorVersion: 1
+  minorVersion: 1
+
+  # Who created the compose file? (not the app ;-)
+  author: Koen Swings
+  organisation: appdocker
 networks:
   frontend:
     external: true
