@@ -27,12 +27,6 @@ services:
     networks:
       - frontend
       - backend
-    labels:
-      - "append=true"
-      - "traefik.enable=true"
-      - "traefik.docker.network=frontend"
-      # Route http://kolibri.{server_hostname}.{server_hostname}
-      - "traefik.http.routers.kolibri.entrypoints=web"
-      - "traefik.http.routers.kolibri.rule=Host(`kolibri.{server_hostname}.{server_domain}`)"
-      - "traefik.http.routers.kolibri.service=kolibri"
-      - "traefik.http.services.kolibri.loadbalancer.server.port=8080"
+    ports:
+      - ${port}:8080
+
