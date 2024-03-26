@@ -12,11 +12,6 @@ x-meta:
   # Who created the compose file? (not the app ;-)
   author: Koen Swings
   organisation: appdocker
-networks:
-  frontend:
-    external: true
-  backend:
-    external: true
 services:
   kolibri:
     image: koenswings/kolibri:1.0-0.15.5-dev
@@ -24,9 +19,6 @@ services:
     pull_policy: never
     volumes:
       - ./data:/root/.kolibri
-    networks:
-      - frontend
-      - backend
     ports:
       - ${port}:8080
 
