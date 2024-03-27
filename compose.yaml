@@ -1,4 +1,5 @@
 x-meta:
+  # App data
   app: kolibri
   version: 1.1
 
@@ -9,12 +10,12 @@ x-meta:
     Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
   url: https://learningequality.org/kolibri/
 
-  # Who created the compose file? (not the app ;-)
+  # Who created this compose file? (not the app ;-)
   author: Koen Swings
-  organisation: appdocker
 services:
   kolibri:
-    image: koenswings/kolibri:1.0-0.15.5-dev
+    #image: koenswings/kolibri:1.0-0.15.5-dev
+    image: koenswings/kolibri:latest_dev
     restart: unless-stopped
     pull_policy: never
     volumes:
