@@ -1,6 +1,5 @@
 x-app:
   name: kolibri
-  version: 1.1
   title: Kolibri
   description: |
     Kolibri is an adaptable set of open solutions specially developed to support learning for the half of the world without Internet access. 
