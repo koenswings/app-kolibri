@@ -1,17 +1,14 @@
-x-meta:
-  # App data
-  app: kolibri
+x-app:
+  name: kolibri
   version: 1.1
-
-  # Catalog data
   title: Kolibri
   description: |
     Kolibri is an adaptable set of open solutions specially developed to support learning for the half of the world without Internet access. 
     Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
   url: https://learningequality.org/kolibri/
-
-  # Who created this compose file? (not the app ;-)
-  author: Koen Swings
+  category: education
+  icon: icon.png
+  author: Koen Swings  # Who created this compose file? (not the app ;-)
 services:
   kolibri:
     #image: koenswings/kolibri:1.0-0.15.5-dev
