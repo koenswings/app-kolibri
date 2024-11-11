@@ -12,7 +12,7 @@ services:
   kolibri:
     #image: koenswings/kolibri:1.0-0.15.5-dev
     image: koenswings/kolibri:latest_dev
-    restart: unless-stopped
+    restart: no
     pull_policy: never
     volumes:
       - ./data:/root/.kolibri
