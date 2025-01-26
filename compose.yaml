@@ -11,7 +11,7 @@ x-app:
 services:
   kolibri:
     #image: koenswings/kolibri:1.0-0.15.5-dev
-    image: koenswings/kolibri:latest_dev
+    image: koenswings/kolibri
     init: true
     restart: no
     pull_policy: never
