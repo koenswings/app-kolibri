@@ -18,9 +18,9 @@ services:
     init: true
     restart: no
     pull_policy: never
-    volumes:
-      - ./data/docker:/docker/mnt
-      - ./data/kolibri:/root/.kolibri
+    #volumes:
+    #  - ./data/docker:/docker/mnt
+    #  - ./data/kolibri:/root/.kolibri
     network_mode: "host"        
     #ports:
     #  - ${port}:8080
