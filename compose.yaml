@@ -14,7 +14,7 @@ x-app:
   instanceName: kolibri
 services:
   kolibri:
-    image: koenswings/kolibritest
+    image: koenswings/kolibri
     init: true
     restart: no
     pull_policy: never
