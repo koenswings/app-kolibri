@@ -10,17 +10,17 @@ x-app:
   category: education
   icon: icon.png
   author: Koen Swings
-  version: 1d648a52e684922ceefb31b156ba186f9c5c0ef5
+  version: 97bd07c3e6e8d3d170f16f35721d64fe008d6c58
   instanceName: kolibri
 services:
   kolibri:
-    image: koenswings/kolibri
+    image: koenswings/kolibri:1.0-0.15.5-dev
     init: true
     restart: no
     pull_policy: never
-    #volumes:
-    #  - ./data/docker:/docker/mnt
-    #  - ./data/kolibri:/root/.kolibri
+    volumes:
+      - ./data/docker:/docker/mnt
+      - ./data/kolibri:/root/.kolibri
     network_mode: "host"        
     #ports:
     #  - ${port}:8080
