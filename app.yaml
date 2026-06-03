@@ -1,0 +1,18 @@
+app: kolibri
+idea_app_version: "1.0"
+
+compatibility:
+  engine_min: "0.9.0"       # minimum Engine version this App Disk requires
+  engine_tested: "unknown"  # to be updated on first test harness run
+
+services:
+  - name: kolibri
+    build: custom
+    dockerfile: Dockerfile
+    image: koenswings/kolibri
+    current_version: "1.0-0.15.5-dev"
+    monitors:
+      - kind: http-scrape
+        url: "https://learningequality.org/r/kolibri-latest-whl"
+        pattern: "kolibri-(?P<version>[\\d.]+(\\.dev\\d+)?)"
+        notes: "Kolibri is distributed as a .whl (Python wheel). Monitor the latest release page."
