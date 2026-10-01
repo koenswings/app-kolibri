@@ -27,6 +27,10 @@ services:
     #  - 3000:3000
     environment:
       - KOLIBRI_RUN_MODE=docker
+      # Engine writes port= in instance .env for host-network; do not default to 8080
+      # (collides with Console). Fixtures may still pin 18080 via their own .env.
+      - KOLIBRI_HTTP_PORT=${port}
+      - KOLIBRI_LISTEN_PORT=${port}
       # The following options do not seem to take effect
       #- KOLIBRI_PROVISIONDEVICE_FACILITY=Powerberries
       #- KOLIBRI_PROVISIONDEVICE_PRESET=nonformal
