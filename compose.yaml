@@ -16,7 +16,17 @@ services:
   kolibri:
     image: koenswings/kolibri:1.0-0.15.5-dev
     init: true
-    restart: no
+    # r40: image CMD daemonized then tailed the log; Bus EXITED left only the tailer → Docker Up
+    # while :port was dead. Foreground makes Kolibri PID1; healthcheck + on-failure restart.
+    # Image already accepts `start --foreground` (Learning Equality CLI).
+    command: ["./kolibri-0.15.5", "start", "--foreground"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:$${KOLIBRI_HTTP_PORT:-8080}/', timeout=2)\""]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    restart: on-failure
     pull_policy: never
     volumes:
       - ./data/docker:/docker/mnt
