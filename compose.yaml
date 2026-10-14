@@ -10,7 +10,7 @@ x-app:
   category: education
   icon: icon.png
   author: Koen Swings
-  version: 97bd07c3e6e8d3d170f16f35721d64fe008d6c58
+  version: 5ab9f6428b7143c42feee29cc4b9bf950bab3b3e
   instanceName: kolibri
 services:
   kolibri:
