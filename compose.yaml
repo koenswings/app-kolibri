@@ -37,5 +37,4 @@ services:
     #  - 3000:3000
     environment:
       - KOLIBRI_RUN_MODE=docker
-      # No passwords in this file. Default accounts follow the IDEA scheme
-      # <account name>911! (see docs/accounts.md).
+      # Default accounts and their login scheme: see docs/accounts.md.
