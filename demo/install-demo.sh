@@ -13,8 +13,9 @@
 #   1. list instances on disks docked to this Engine; pick the one whose display name is
 #      exactly "Kolibri Demo" (the technical id, e.g. kolibri-demo, does not matter).
 #      More than one -> refuse (exit 10).
-#   2. none -> installApp <app> <disk> --name "Kolibri Demo"  (no --source: builder/GitHub
-#      route, a clean bundle, never a copy of a school's data), then look it up again by name.
+#   2. none -> installApp <app> <disk> --source <disk> --name "Kolibri Demo" --fresh
+#      (--fresh: start from the app bundle, never a copy of a school's data; without the
+#      bundle on <source> the Engine falls back to its clean GitHub build), then look it up again.
 #   3. stopInstance <id> <disk>
 #   4. demo/provision-demo.sh --demo-instance <data dir>  (IDEA Demo School, users; it also
 #      refuses a device that holds any other facility -> fail closed)
@@ -25,6 +26,8 @@
 # Usage: demo/install-demo.sh [options]
 #   --engine-dir DIR    Engine checkout (config.yaml, store-identity/, node_modules)  [$ENGINE_DIR]
 #   --disk ID           target disk for a NEW install (default: the only docked disk)   [$DEMO_DISK]
+#   --source ID         disk holding apps/<app> (default: the target disk)              [$DEMO_SOURCE]
+#                       installApp always gets --fresh: never a copy of a school's data
 #   --instance ID       re-seed this instance; refused unless its name is exactly the demo name
 #   --channels DIR|TAR  IDEA-DEMO export (holds KOLIBRI_DATA/)                          [$DEMO_CHANNELS]
 #   --no-channels       skip the channel import
@@ -48,8 +51,35 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 die() { local c=$1; shift; echo "ERROR: $*" >&2; exit "$c"; }
 
 engine() {  # engine list|disks|send "<command>"
-  if [ -n "${ENGINE_CMD:-}" ]; then $ENGINE_CMD "$@"
-  else node "$HERE/engine-cmd.mjs" "$ENGINE_DIR" "$@"; fi
+  if [ -n "${ENGINE_CMD:-}" ]; then $ENGINE_CMD "$@"; return; fi
+  # engine-cmd.mjs needs the Engine's node_modules: run it from a temp dir that links them.
+  if [ -z "${EC_DIR:-}" ]; then
+    EC_DIR="$(mktemp -d)"; trap 'rm -rf "$EC_DIR"' EXIT
+    cp "$HERE/engine-cmd.mjs" "$EC_DIR/"; ln -s "$ENGINE_DIR/node_modules" "$EC_DIR/node_modules"
+  fi
+  (cd "$EC_DIR" && node engine-cmd.mjs "$ENGINE_DIR" "$@")
+}
+
+# x-app.instanceName of an instance folder (quotes stripped)
+compose_name() { sed -n 's/^  instanceName:[[:space:]]*//p' "$1/compose.yaml" 2>/dev/null | head -1 | sed -e "s/^[\"']//" -e "s/[\"']\$//"; }
+
+wait_stopped() {  # $1 data dir: no running container may mount it
+  [ "$DRY" = 1 ] && return 0
+  local live c
+  for _ in $(seq "${STOP_WAIT:-60}"); do
+    live=0
+    for c in $(${DOCKER:-docker} ps -q); do
+      ${DOCKER:-docker} inspect -f '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' "$c" | grep -qxF "$1" && live=1
+    done
+    [ "$live" = 0 ] && return 0; sleep 2
+  done
+  return 1
+}
+
+wait_http() {  # $1 port
+  [ "$DRY" = 1 ] || [ -z "$1" ] && return 0
+  for _ in $(seq "${HTTP_WAIT:-120}"); do ${CURL:-curl} -sf -o /dev/null "http://127.0.0.1:$1/" && return 0; sleep 2; done
+  return 1
 }
 
 # Instances whose display name is exactly DEMO_NAME: prints "id<TAB>storedOn<TAB>device<TAB>port"
@@ -95,11 +125,12 @@ import_channels() {  # $1 data dir
 
 main() {
   ENGINE_DIR="${ENGINE_DIR:-}"; DISK="${DEMO_DISK:-}"; TARGET=""; CHANNELS="${DEMO_CHANNELS:-}"
-  APP="${DEMO_APP:-kolibri-1.0}"; NOCH=0; DRY=0; FORCE=()
+  SRC="${DEMO_SOURCE:-}"; APP="${DEMO_APP:-kolibri-1.0}"; NOCH=0; DRY=0; FORCE=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --engine-dir) ENGINE_DIR="${2:?}"; shift 2 ;;
       --disk) DISK="${2:?}"; shift 2 ;;
+      --source) SRC="${2:?}"; shift 2 ;;
       --instance) TARGET="${2:?}"; shift 2 ;;
       --channels) CHANNELS="${2:?}"; shift 2 ;;
       --no-channels) NOCH=1; shift ;;
@@ -132,7 +163,7 @@ main() {
       DISK="$(printf '%s' "$disks" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s||"[]");if(d.length===1)console.log(d[0].id)})')"
       [ -n "$DISK" ] || die 18 "pass --disk <id>: not exactly one disk is docked"
     fi
-    send "installApp $APP $DISK --name \"$DEMO_NAME\"" || die 12 "installApp Failed (see the Engine command log)"
+    send "installApp $APP $DISK --source ${SRC:-$DISK} --name \"$DEMO_NAME\" --fresh" || die 12 "installApp Failed (see the Engine command log)"
     if [ "$DRY" = 1 ]; then echo '{"result":"dry-run"}'; return 0; fi
     list="$(engine list)" || die 3 "Engine store not reachable"
     local rows; rows="$(demo_instances "$list")"
@@ -142,12 +173,22 @@ main() {
     result=reseeded
   fi
 
-  local data="${DISKS_ROOT:-/disks}/$dev/instances/$id/data/kolibri"
+  local inst="${DISKS_ROOT:-/disks}/$dev/instances/$id" data
+  data="$inst/data/kolibri"
+  if [ "$DRY" != 1 ]; then
+    [ -f "$inst/compose.yaml" ] || die 11 "refusing $id: $inst/compose.yaml missing"
+    [ "$(compose_name "$inst")" = "$DEMO_NAME" ] || die 11 "refusing $id: compose x-app.instanceName is '$(compose_name "$inst")', not '$DEMO_NAME'"
+  fi
   send "stopInstance $id $disk" || die 14 "stopInstance Failed"
+  wait_stopped "$data" || die 14 "Kolibri of $id still running after stopInstance"
   local rc=0
   ${PROVISION:-"$HERE/provision-demo.sh"} --demo-instance "${FORCE[@]}" $([ "$DRY" = 1 ] && echo --dry-run) "$data" || rc=15
   if [ $rc = 0 ] && [ "$NOCH" = 0 ]; then import_channels "$data" || rc=16; fi
   send "startInstance $id $disk" || { [ $rc = 0 ] && rc=17; echo "ERROR: startInstance Failed" >&2; }
+  if [ $rc = 0 ]; then
+    port="$(sed -n 's/^port=//p' "$inst/.env" 2>/dev/null | head -1)"; port="${port:-$port}"
+    wait_http "$port" || rc=17
+  fi
   [ $rc = 0 ] || die $rc "demo seed failed (exit $rc); the instance was started again if possible"
   printf '{"result":"%s","id":"%s","name":"%s","disk":"%s","port":"%s"}\n' "$result" "$id" "$DEMO_NAME" "$disk" "$port"
 }

@@ -85,9 +85,11 @@ demo/install-demo.sh --engine-dir ~/idea/agent-engine-dev --channels idea-demo-k
 ```
 
 1. Find the instance named exactly `Kolibri Demo` on a disk docked here (two of them: refuse, exit 10).
-2. None: `installApp kolibri-1.0 <disk> --name "Kolibri Demo"` with no `--source`, so the builder/GitHub
-   route starts from a clean bundle and never copies a school's data. It is then looked up by name; if the
-   Engine dropped the name (exit 13) nothing is seeded.
+2. None: `installApp <app> <disk> --source <source disk> --name "Kolibri Demo" --fresh` (`--source`
+   defaults to the target disk; `--fresh` starts from the app bundle and never copies a school's data; no
+   bundle on the source → the Engine's clean GitHub build). It is then looked up by name; if the Engine
+   dropped the name (exit 13) nothing is seeded, and a folder whose compose `x-app.instanceName` is not
+   exactly `Kolibri Demo` is refused (exit 11).
 3. `stopInstance`, then `provision-demo.sh --demo-instance <disk>/instances/<id>/data/kolibri`, then one-shot
    `importchannel`/`importcontent disk` for every channel in the IDEA-DEMO export, then `startInstance`
    (also after a seed failure).
@@ -100,8 +102,8 @@ Failed, 13 no instance with the demo name after install, 14 stopInstance Failed,
 (`result`, `id`, `name`, `disk`, `port`). Sourcing the script defines its functions without running it, so
 an Engine hook (idea#235, Console demo button) can reuse it.
 
-**Depends on the Engine fix (Axle, pending):** quote-aware `installApp --name "Kolibri Demo"` and the
-instance name in the store record. Until it lands, the script fails closed with exit 13.
+**Needs agent-engine-dev#221** (quote-aware `--name`, `--fresh`). An older Engine drops the name and the
+script fails closed with exit 13.
 
 ### Seeding by hand (instance already stopped)
 

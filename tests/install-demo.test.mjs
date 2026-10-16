@@ -20,7 +20,7 @@ function setup(instances = [structuredClone(school)], disks = [{ id: 'DISK1', na
   const run = (args = [], env = {}) => {
     const r = spawnSync('bash', [SCRIPT, '--no-channels', ...args], { encoding: 'utf8', env: {
       ...process.env, ENGINE_CMD: `node ${join(root, 'tests/fake-engine.mjs')}`, FAKE_STATE: state,
-      PROVISION: prov, DISKS_ROOT: join(dir, 'disks'), ...env } })
+      PROVISION: prov, DISKS_ROOT: join(dir, 'disks'), DOCKER: 'true', CURL: 'true', ...env } })
     return { ...r, st: JSON.parse(readFileSync(state, 'utf8')), prov: (() => { try { return readFileSync(plog, 'utf8') } catch { return '' } })() }
   }
   return { run, dir }
@@ -31,7 +31,7 @@ it('installs a new instance named exactly "Kolibri Demo" (quoted --name) and see
   const { run, dir } = setup()
   const r = run()
   assert.equal(r.status, 0, r.stderr)
-  assert.deepEqual(r.st.commands, ['installApp kolibri-1.0 DISK1 --name "Kolibri Demo"', 'stopInstance kolibri-demo DISK1', 'startInstance kolibri-demo DISK1'])
+  assert.deepEqual(r.st.commands, ['installApp kolibri-1.0 DISK1 --source DISK1 --name "Kolibri Demo" --fresh', 'stopInstance kolibri-demo DISK1', 'startInstance kolibri-demo DISK1'])
   assert.equal(r.st.instances.filter(i => i.name === 'Kolibri Demo').length, 1)
   assert.equal(r.prov.trim(), `--demo-instance ${join(dir, 'disks/sdb1/instances/kolibri-demo/data/kolibri')}`)
   assert.match(r.stdout.trim().split('\n').pop(), /"result":"installed","id":"kolibri-demo","name":"Kolibri Demo"/)
@@ -76,7 +76,7 @@ it('fail-closed: installApp trace Failed -> exit 12, no stop/seed/start', () => 
   const r = run([], { FAKE_FAIL: 'installApp' })
   assert.equal(r.status, 12)
   assert.equal(r.prov, '')
-  assert.deepEqual(r.st.commands, ['installApp kolibri-1.0 DISK1 --name "Kolibri Demo"'])
+  assert.deepEqual(r.st.commands, ['installApp kolibri-1.0 DISK1 --source DISK1 --name "Kolibri Demo" --fresh'])
 })
 
 it('fail-closed: stopInstance Failed -> exit 14, provision never runs on a live server', () => {
@@ -111,4 +111,19 @@ it('dry-run sends nothing', () => {
 it('is sourceable from a hook without running', () => {
   const r = spawnSync('bash', ['-c', `source ${SCRIPT} && type main >/dev/null && echo sourced`], { encoding: 'utf8' })
   assert.equal(r.stdout.trim(), 'sourced')
+})
+
+it('--source names the bundle disk; installApp always carries --fresh', () => {
+  const { run } = setup(undefined, [{ id: 'DISK1', name: 'D1', device: 'sdb1' }, { id: 'APPS', name: 'A', device: 'sdc1' }])
+  const r = run(['--disk', 'DISK1', '--source', 'APPS', '--app', 'kolibri-abc'])
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.st.commands[0], 'installApp kolibri-abc DISK1 --source APPS --name "Kolibri Demo" --fresh')
+})
+
+it('refuses an instance whose compose.yaml instanceName is not "Kolibri Demo" (exit 11), nothing seeded', () => {
+  const { run } = setup()
+  const r = run([], { FAKE_COMPOSE_NAME: 'Kolibri' })
+  assert.equal(r.status, 11, r.stderr)
+  assert.equal(r.prov, '')
+  assert.ok(!r.st.commands.some(c => /^stopInstance/.test(c)))
 })
