@@ -41,8 +41,4 @@ services:
       - KOLIBRI_HTTP_PORT=${port}
       - KOLIBRI_LISTEN_PORT=${port}
       - KOLIBRI_RUN_MODE=docker
-      # The following options do not seem to take effect
-      #- KOLIBRI_PROVISIONDEVICE_FACILITY=Powerberries
-      #- KOLIBRI_PROVISIONDEVICE_PRESET=nonformal
-      #- KOLIBRI_PROVISIONDEVICE_SUPERUSERNAME=admin
-      #- KOLIBRI_PROVISIONDEVICE_SUPERUSERPASSWORD=admin911!
+      # Default accounts and their login scheme: see docs/accounts.md.
