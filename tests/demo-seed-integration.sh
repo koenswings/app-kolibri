@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # Integration test: runs demo/provision-demo.sh against throwaway Kolibri 0.15.5
 # data dirs (no Pi app data), in two scenarios:
-#   A. empty device
-#   B. device already provisioned with "Other School" (otheradmin, learner other1)
-# and checks idempotency, the live-server guard, real logins, that demo users land
-# only in IDEA Demo School, and (B) that Other School and its users are untouched.
+#   A. empty demo instance (<tmp>/kolibri-demo/data/kolibri): seed, rerun, logins
+#   B. device provisioned with "Other School" (otheradmin, learner other1): REFUSED
+#      (exit 6) and every file in the data dir byte-for-byte unchanged (sha256)
+#   C. empty dir without any demo marker: REFUSED (exit 5), nothing created
 # Needs docker and the koenswings/kolibri:1.0-0.15.5-dev image. PORT default 18877.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 IMAGE="${IMAGE:-koenswings/kolibri:1.0-0.15.5-dev}"; PORT="${PORT:-18877}"
 NAME="kolibri-demo-it-$$"; DIRS=()
 wipe() { docker run --rm -v "$1:/d" "$IMAGE" sh -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true; rm -rf "$1" "$1".*; }
+sums() { docker run --rm --network none -v "$1:/d:ro" --entrypoint sh "$IMAGE" -c 'cd /d && find . -type f | sort | xargs -r sha256sum'; }
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; for d in "${DIRS[@]}"; do wipe "$d"; done; rm -f /tmp/it-$$-*.log; }
 trap cleanup EXIT
 fail() { echo "FAIL[$SC]: $*"; exit 1; }
@@ -40,27 +41,47 @@ getsetting() {  # getsetting FACILITY_ID ADMINUSER ADMINPASS
   rm -f "$cj"
 }
 
-scenario() {  # scenario A|B
-  SC=$1; D="$(mktemp -d)"; DIRS+=("$D"); local L1=/tmp/it-$$-$SC-1.log L2=/tmp/it-$$-$SC-2.log
-  if [ "$SC" = B ]; then
-    printf '{"learner_can_login_with_no_password": false}\n' > "$D/fs.json"
-    one provisiondevice --facility "Other School" --superusername otheradmin --superuserpassword 'otheradmin911!' \
-      --preset nonformal --language_id fr-fr --facility_settings /root/.kolibri/fs.json --noinput > "$D.pre" 2>&1 || { tail -5 "$D.pre"; fail "pre-provision"; }
-    printf 'UUID,USERNAME,PASSWORD,FULL_NAME,USER_TYPE,IDENTIFIER,BIRTH_YEAR,GENDER,ENROLLED_IN,ASSIGNED_TO\n,other1,otherpw1,Other One,LEARNER,,,,Class X,\n' > "$D/o.csv"
-    one bulkimportusers /root/.kolibri/o.csv > "$D.pre" 2>&1 || { tail -5 "$D.pre"; fail "pre-import other1"; }
-    BEFORE=$(snap) || fail "snapshot before"
-    echo "$BEFORE" | grep -q '"Other School"' || fail "pre-provision missing Other School"
-  fi
+refused() {  # B: another facility -> refused, unchanged
+  SC=B; D="$(mktemp -d)"; DIRS+=("$D")
+  printf '{"learner_can_login_with_no_password": false}\n' > "$D/fs.json"
+  one provisiondevice --facility "Other School" --superusername otheradmin --superuserpassword 'otheradmin911!' \
+    --preset nonformal --language_id fr-fr --facility_settings /root/.kolibri/fs.json --noinput > "$D.pre" 2>&1 || { tail -5 "$D.pre"; fail "pre-provision"; }
+  printf 'UUID,USERNAME,PASSWORD,FULL_NAME,USER_TYPE,IDENTIFIER,BIRTH_YEAR,GENDER,ENROLLED_IN,ASSIGNED_TO\n,other1,otherpw1,Other One,LEARNER,,,,Class X,\n' > "$D/o.csv"
+  one bulkimportusers /root/.kolibri/o.csv > "$D.pre" 2>&1 || { tail -5 "$D.pre"; fail "pre-import other1"; }
+  snap | grep -q '"Other School"' || fail "pre-provision missing Other School"
+  local before after rc
+  before=$(sums "$D"); echo "$before" | grep -q ' ./db.sqlite3$' || fail "no db.sqlite3 to checksum"
+  set +e; demo/provision-demo.sh --demo-instance "$D" > "$D.log" 2>&1; rc=$?; set -e
+  [ "$rc" = 6 ] || { cat "$D.log"; fail "Other School device not refused (rc=$rc, want 6)"; }
+  grep -q "REFUSED: .* not a dedicated demo instance" "$D.log" || fail "no clear refusal message"
+  ! grep -qE "manage (provisiondevice|bulk)" "$D.log" || fail "a write command ran"
+  after=$(sums "$D")
+  [ "$before" = "$after" ] || { diff <(echo "$before") <(echo "$after"); fail "data dir changed"; }
+  echo "PASS[B] device with Other School REFUSED (exit 6); all $(echo "$after" | wc -l) files byte-for-byte unchanged (sha256, incl. db.sqlite3)"
+}
+
+nomarker() {  # C: no demo marker -> refused before anything runs
+  SC=C; D="$(mktemp -d)"; DIRS+=("$D"); local rc
+  set +e; demo/provision-demo.sh "$D" > "$D.log" 2>&1; rc=$?; set -e
+  [ "$rc" = 5 ] || { cat "$D.log"; fail "unmarked dir not refused (rc=$rc, want 5)"; }
+  [ -z "$(ls -A "$D")" ] || fail "unmarked dir changed"
+  echo "PASS[C] no demo marker REFUSED (exit 5), nothing created"
+}
+
+scenario() {  # A: empty demo instance, marked by its folder name
+  SC=A; local R; R="$(mktemp -d)"; DIRS+=("$R"); D="$R/kolibri-demo/data/kolibri"; mkdir -p "$D"
+  local L1=/tmp/it-$$-$SC-1.log L2=/tmp/it-$$-$SC-2.log
   demo/provision-demo.sh "$D" > "$L1" 2>&1 || { cat "$L1"; fail "first run"; }
   report "$L1" | grep -q "'created': 5" || fail "first run did not create 5 users: $(report "$L1")"
   demo/provision-demo.sh "$D" > "$L2" 2>&1 || { cat "$L2"; fail "second run"; }
+  grep -q "Demo instance marker: instance folder kolibri-demo" "$L1" || fail "folder marker not used"
   grep -q "not running provisiondevice" "$L2" || fail "rerun ran provisiondevice"
   report "$L2" | grep -q "'updated': 0, 'created': 0" || fail "rerun not idempotent: $(report "$L2")"
   grep -q "Data errors: \[\]" "$L2" || fail "rerun data errors"
   echo "PASS[$SC] idempotent rerun (provisiondevice skipped once IDEA Demo School exists)"
 
   AFTER=$(snap) || fail "snapshot after"
-  python3 - "$SC" "$AFTER" "${BEFORE:-}" <<'PY' || fail "data check"
+  python3 - "$SC" "$AFTER" <<'PY' || fail "data check"
 import json, sys
 sc, after = sys.argv[1], json.loads(sys.argv[2])
 demo = {"admin", "teacher1", "teacher2", "learner1", "learner2", "learner3"}
@@ -69,21 +90,9 @@ assert inn == demo, ("IDEA Demo School users", inn)
 for u in after["users"]:
     if u[1] in demo:
         assert u[0] == "IDEA Demo School", ("demo user outside IDEA Demo School", u)
-if sc == "A":
-    assert after["facilities"] == ["IDEA Demo School"], after["facilities"]
-else:
-    before = json.loads(sys.argv[3])
-    assert after["facilities"] == ["IDEA Demo School", "Other School"], after["facilities"]
-    ob = [u for u in before["users"] if u[0] == "Other School"]
-    oa = [u for u in after["users"] if u[0] == "Other School"]
-    assert {u[1] for u in ob} == {"otheradmin", "other1"}, ob
-    assert ob == oa, ("Other School users changed", ob, oa)  # same ids and password hashes
-    for k in ("other_dataset", "other_collections", "other_memberships", "default_facility", "device"):
-        assert before[k] == after[k], (k, before[k], after[k])
-    assert after["default_facility"] == [["Other School"]], after["default_facility"]
+assert after["facilities"] == ["IDEA Demo School"], after["facilities"]
 print("ok")
 PY
-  if [ "$SC" = B ]; then echo "PASS[B] Other School, otheradmin, other1, their memberships, dataset and device settings unchanged"; fi
   echo "PASS[$SC] demo users only in IDEA Demo School"
 
   docker run -d --name "$NAME" --network host -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HTTP_PORT="$PORT" \
@@ -91,7 +100,7 @@ PY
   set +e; demo/provision-demo.sh "$D" >/dev/null 2>&1; rc=$?; set -e
   [ "$rc" = 3 ] || fail "live guard rc=$rc"; echo "PASS[$SC] refuses live server"
   for _ in $(seq 90); do curl -sf "localhost:$PORT/" >/dev/null && break; sleep 2; done
-  local F O=""
+  local F
   F=$(curl -s "localhost:$PORT/api/public/v1/facility/" | python3 -c 'import json,sys;print([f["id"] for f in json.load(sys.stdin) if f["name"]=="IDEA Demo School"][0])') || fail "facility"
   [ "$(getsetting "$F" admin 'admin911!')" = True ] || fail "learner_can_login_with_no_password not on in IDEA Demo School"
   echo "PASS[$SC] IDEA Demo School: learner_can_login_with_no_password on"
@@ -114,18 +123,10 @@ PY
   c=$(setting "$F" true); [ "$c" = 200 ] || fail "switch setting back on -> $c"
   c=$(login "$F" learner1); [ "$c" = 200 ] || fail "setting back on: learner1 -> $c"
   echo "PASS[$SC] stored learner fallback learnerN911! (setting off), username-only after switching back"
-  if [ "$SC" = B ]; then
-    O=$(curl -s "localhost:$PORT/api/public/v1/facility/" | python3 -c 'import json,sys;print([f["id"] for f in json.load(sys.stdin) if f["name"]=="Other School"][0])') || fail "other facility"
-    [ "$(getsetting "$O" otheradmin 'otheradmin911!')" = False ] || fail "Other School setting changed"
-    c=$(login "$O" other1 otherpw1); [ "$c" = 200 ] || fail "other1 login -> $c"
-    c=$(login "$O" other1); [ "$c" != 200 ] || fail "other1 username-only -> 200 (Other School must still need passwords)"
-    c=$(login "$O" otheradmin 'otheradmin911!'); [ "$c" = 200 ] || fail "otheradmin login -> $c"
-    for u in teacher1 learner1; do c=$(login "$O" "$u" "${u}911!"); [ "$c" != 200 ] || fail "$u exists in Other School"; done
-    echo "PASS[B] Other School logins as before (other1 needs its password, setting still off); demo users absent there"
-  fi
   docker rm -f "$NAME" >/dev/null
 }
 
-scenario A
-scenario B
+nomarker
+refused
+scenario
 echo "ALL PASS"

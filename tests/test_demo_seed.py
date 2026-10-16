@@ -100,10 +100,40 @@ class Build(unittest.TestCase):
 
 
 class Script(unittest.TestCase):
-    def dry(self, *extra):
-        d = tempfile.mkdtemp()
-        return subprocess.run(["bash", SCRIPT, "--dry-run", *extra, d], capture_output=True, text=True,
+    def dry(self, *extra, d=None, flag=True):
+        d = d or tempfile.mkdtemp()
+        args = ["--demo-instance"] if flag else []
+        return subprocess.run(["bash", SCRIPT, "--dry-run", *args, *extra, d], capture_output=True, text=True,
                               env=dict(os.environ, DOCKER="false"))
+
+    def inst(self, name, env=None):
+        root = tempfile.mkdtemp()
+        d = os.path.join(root, name, "data", "kolibri")
+        os.makedirs(d)
+        if env is not None:
+            with open(os.path.join(root, name, ".env"), "w") as f:
+                f.write(env)
+        return d
+
+    def test_refuses_without_demo_marker(self):
+        for d in (tempfile.mkdtemp(), self.inst("kolibri"), self.inst("kolibri", "COMPOSE_PROJECT_NAME=school\n")):
+            p = self.dry(d=d, flag=False)
+            self.assertEqual(p.returncode, 5, p.stdout + p.stderr)
+            self.assertIn("REFUSED", p.stderr)
+            self.assertNotIn("DRY:", p.stdout)  # nothing runs
+            self.assertEqual(os.listdir(d), [])
+
+    def test_demo_marker_from_instance_folder_or_env(self):
+        for d in (self.inst("kolibri-Demo"), self.inst("DEMO"), self.inst("k1", "COMPOSE_PROJECT_NAME=idea-demo\n")):
+            p = self.dry(d=d, flag=False)
+            self.assertEqual(p.returncode, 0, p.stderr)
+            self.assertIn("Demo instance marker", p.stdout)
+
+    def test_no_add_alongside_path(self):
+        with open(SCRIPT) as f:
+            src = f.read()
+        self.assertNotIn("alongside", src)
+        self.assertEqual(src.count("oneshot provisiondevice"), 1)  # empty-device path only
 
     def test_dry_run_uses_only_supported_commands(self):
         p = self.dry()
@@ -172,6 +202,10 @@ class FacilityInfo(unittest.TestCase):
     def test_opens_read_only(self):
         with open(os.path.join(ROOT, "demo", "facility_info.py")) as f:
             self.assertIn("mode=ro", f.read())
+
+    def test_lists_all_facilities(self):
+        d = self.make(True, [("Other School", "facility"), ("IDEA Demo School", "facility"), ("G", "classroom")])
+        self.assertEqual(fi.probe_all(d, "IDEA Demo School"), (True, "id1", ["IDEA Demo School", "Other School"]))
 
     def test_read_only(self):
         d = self.make(True, [("IDEA Demo School", "facility")])

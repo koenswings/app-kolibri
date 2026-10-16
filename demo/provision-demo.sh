@@ -4,15 +4,22 @@
 # Uses only supported Kolibri 0.15.5 management commands, run in a ONE-SHOT
 # container against the instance's data dir while the Kolibri server is STOPPED:
 #   0. facility_info.py (read-only SQLite open, mode=ro): provisioned? IDEA Demo School id?
-#   1. kolibri manage provisiondevice --noinput   (only if IDEA Demo School is missing:
-#      creates it with admin/admin911! and {"learner_can_login_with_no_password": true};
-#      on a device that already has another facility it is ADDED alongside it)
+#   1. kolibri manage provisiondevice --noinput   (only on an EMPTY device: creates
+#      IDEA Demo School with admin/admin911! and {"learner_can_login_with_no_password": true})
 #   2. kolibri manage bulkimportusers --facility <IDEA Demo School id> users.csv
 #      (class Grade 5, teacher1, teacher2, learner1..3;
 #      learners sign in with their username only; their stored fallback is <account>911!)
 # It never execs into a running server and never uses `kolibri manage shell`.
 #
-# Usage: demo/provision-demo.sh [--dry-run] [--force-passwords] DATA_DIR
+# DEMO INSTANCES ONLY (Koen, 2026-10-16): the demo is always its own Kolibri
+# instance with "demo" in its name, never a school inside an existing Kolibri.
+# It refuses (exit 5, nothing changed) unless the instance is marked as a demo:
+#   the instance folder (DATA_DIR/../.. for <instance>/data/kolibri) or its .env
+#   COMPOSE_PROJECT_NAME contains "demo" (case-insensitive), or --demo-instance;
+# and refuses (exit 6, nothing changed) unless the device is empty/unprovisioned
+# or its ONLY facility is "IDEA Demo School" (rerun).
+#
+# Usage: demo/provision-demo.sh [--dry-run] [--force-passwords] [--demo-instance] DATA_DIR
 #   DATA_DIR  host path mounted at /root/.kolibri (the instance's data/kolibri)
 # Env: IMAGE (default koenswings/kolibri:1.0-0.15.5-dev), DOCKER (default docker)
 #
@@ -28,18 +35,37 @@ DOCKER="${DOCKER:-docker}"
 K=./kolibri-0.15.5
 FACILITY="IDEA Demo School"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-DRY=0; FORCE=0
+DRY=0; FORCE=0; DEMOFLAG=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift ;;
     --force-passwords) FORCE=1; shift ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    --demo-instance|--i-am-demo-instance) DEMOFLAG=1; shift ;;
+    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
     -*) echo "unknown option $1" >&2; exit 2 ;;
     *) break ;;
   esac
 done
-DATA="${1:?usage: provision-demo.sh [--dry-run] [--force-passwords] DATA_DIR}"
+DATA="${1:?usage: provision-demo.sh [--dry-run] [--force-passwords] [--demo-instance] DATA_DIR}"
 DATA="$(cd "$DATA" && pwd)"
+
+# Guard 1: demo marker (checked before anything runs).
+demo_marker() {
+  [ "$DEMOFLAG" = 1 ] && { echo "--demo-instance"; return 0; }
+  case "$DATA" in */data/kolibri) ;; *) return 1 ;; esac
+  local inst; inst="$(dirname "$(dirname "$DATA")")"
+  if basename "$inst" | grep -qi demo; then echo "instance folder $(basename "$inst")"; return 0; fi
+  if [ -f "$inst/.env" ] && grep -iE '^COMPOSE_PROJECT_NAME=.*demo' "$inst/.env" >/dev/null; then
+    echo "COMPOSE_PROJECT_NAME in $inst/.env"; return 0; fi
+  return 1
+}
+if ! MARK=$(demo_marker); then
+  echo "REFUSED: $DATA is not marked as a demo instance. The IDEA demo is always a separate" >&2
+  echo "Kolibri instance with 'demo' in its name (instance folder or COMPOSE_PROJECT_NAME), or" >&2
+  echo "pass --demo-instance (the Engine hook does this for its demo instance). Nothing changed." >&2
+  exit 5
+fi
+echo "Demo instance marker: $MARK"
 
 run() { if [ "$DRY" = 1 ]; then printf 'DRY:'; printf ' %q' "$@"; echo; else "$@"; fi; }
 
@@ -70,11 +96,12 @@ probe() {
     run $DOCKER run --rm --network none -v "$DATA:/root/.kolibri" -v "$HERE:/demo:ro" \
       --entrypoint python3 "$IMAGE" /demo/facility_info.py /root/.kolibri "$FACILITY"
     # dry run: pretend an empty device first, then a created facility
-    PROVISIONED=0; FID="${FID+FACILITY_ID}"; return
+    PROVISIONED=0; FACILITIES='[]'; FID="${FID+FACILITY_ID}"; return
   fi
   local out; out=$($DOCKER run --rm --network none -v "$DATA:/root/.kolibri" -v "$HERE:/demo:ro" \
       --entrypoint python3 "$IMAGE" /demo/facility_info.py /root/.kolibri "$FACILITY")
   PROVISIONED=$(printf '%s\n' "$out" | sed -n 's/^provisioned=//p')
+  FACILITIES=$(printf '%s\n' "$out" | sed -n 's/^facilities=//p')
   FID=$(printf '%s\n' "$out" | sed -n 's/^facility_id=//p')
 }
 
@@ -85,19 +112,20 @@ probe() {
 FS="$WORK/facility_settings.json"
 [ "$DRY" = 1 ] || printf '{"learner_can_login_with_no_password": true}\n' > "$FS"
 probe
+# Guard 2: dedicated demo device only. Allowed: empty/unprovisioned (no facility),
+# or a device whose ONLY facility is IDEA Demo School (rerun). Anything else is
+# refused before any write.
+if [ "$DRY" != 1 ]; then
+  if [ "$FACILITIES" = '[]' ] && [ "$PROVISIONED" != 1 ]; then :
+  elif [ "$FACILITIES" = '["IDEA Demo School"]' ] && [ -n "$FID" ]; then :
+  else
+    echo "REFUSED: $DATA is not a dedicated demo instance (provisioned=$PROVISIONED, facilities=$FACILITIES)." >&2
+    echo "The demo is never added to an existing Kolibri. Use a separate instance with 'demo' in its name. Nothing changed." >&2
+    exit 6
+  fi
+fi
 if [ -n "$FID" ]; then
   echo "IDEA Demo School exists ($FID): not running provisiondevice."
-elif [ "$PROVISIONED" = 1 ]; then
-  # Device already set up with another facility. Kolibri 0.15.5 has no
-  # createfacility; provisiondevice with a NEW facility name only creates that
-  # facility (preset + facility_settings on it alone) and the admin superuser in
-  # it. DeviceSettings is get_or_create'd, so the existing device settings and
-  # default facility stay as they are (no --language_id/--device_settings here).
-  echo "Device already provisioned: adding IDEA Demo School alongside the existing facility."
-  oneshot provisiondevice --facility "$FACILITY" \
-    --superusername admin --superuserpassword 'admin911!' --preset formal \
-    --facility_settings /seed/facility_settings.json --noinput
-  probe
 else
   oneshot provisiondevice --facility "$FACILITY" \
     --superusername admin --superuserpassword 'admin911!' \
@@ -106,8 +134,7 @@ else
   probe
 fi
 [ -n "$FID" ] || { echo "ERROR: could not resolve the IDEA Demo School facility id" >&2; exit 4; }
-# Always target IDEA Demo School explicitly: users in other facilities are never
-# read, changed, moved or deleted (no --delete).
+# Always target IDEA Demo School explicitly by id (no --delete).
 # bulkimportusers matches existing users by UUID only: export first, then merge.
 oneshot bulkexportusers --facility "$FID" -O /seed/existing.csv -w
 EXPORT="$WORK/existing.csv"; [ -s "$EXPORT" ] || EXPORT=""

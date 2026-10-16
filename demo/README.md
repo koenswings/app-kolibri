@@ -31,12 +31,7 @@ data dir):
    `mode=ro` and reports whether the device is provisioned and the id of the facility named
    "IDEA Demo School". Kolibri 0.15.5 has no `listfacilities` or `createfacility` command, and
    `bulkimportusers`/`bulkexportusers` need `--facility <id>` to target a facility other than the default.
-1. **Only if IDEA Demo School does not exist:**
-   - empty device: `kolibri manage provisiondevice --facility "IDEA Demo School" --superusername admin --superuserpassword admin911! --preset formal --language_id en --facility_settings facility_settings.json --noinput`
-   - device already provisioned with another facility: the same command **without** `--language_id`.
-     In 0.15.5 this is the only supported command that creates a facility; for a new facility name it
-     only creates that facility (preset and settings on it alone) and the `admin` superuser in it.
-     Device settings are `get_or_create`d, so the existing language and **default facility stay as they are**.
+1. **Only on an empty device:** `kolibri manage provisiondevice --facility "IDEA Demo School" --superusername admin --superuserpassword admin911! --preset formal --language_id en --facility_settings facility_settings.json --noinput`
 
    `facility_settings.json` = `{"learner_can_login_with_no_password": true}` (the 0.15.5 `formal` preset
    already sets it; the file keeps it explicit). Kolibri applies the preset and these settings **only to the
@@ -47,8 +42,7 @@ data dir):
    `demo/build_users_csv.py` in the Kolibri 0.15.5 format
    (`UUID,USERNAME,PASSWORD,FULL_NAME,USER_TYPE,IDENTIFIER,BIRTH_YEAR,GENDER,ENROLLED_IN,ASSIGNED_TO`).
 
-Users always go to IDEA Demo School by id. Users in any other facility are never read, changed,
-moved or deleted (`--delete` is never used).
+Users always go to IDEA Demo School by id (`--delete` is never used).
 
 **Idempotent:** a re-run finds the facility, skips `provisiondevice`, keeps the existing admin, and
 updates existing users by UUID with `PASSWORD=*` (unchanged). Kolibri 0.15.5
@@ -56,15 +50,32 @@ matches users by UUID only, which is why step 2 exists. `--force-passwords`
 resets `teacher1`, `teacher2` and the learners to `<account>911!` (the admin is never reset).
 Users not in `demo/users.csv` are left alone.
 
-**Other facility on the device** (tested, `tests/demo-seed-integration.sh` scenario B): IDEA Demo
-School is added alongside it. The other facility, its users, classes, memberships and settings and
-the device's default facility and language are unchanged. On the sign-in page, pick IDEA Demo School.
+## Demo instances only (Koen, 2026-10-16)
+
+The demo is **always a separate Kolibri instance with "demo" in its name**, never a school added
+inside an existing Kolibri. The script has two guards and changes nothing when either fails:
+
+1. **Demo marker** (checked first, before any container runs; exit 5). One of:
+   - the instance folder name contains `demo` (case-insensitive): `DATA_DIR` is
+     `<instance>/data/kolibri`, so for `/home/pi/apps/kolibri-demo/data/kolibri` the folder is `kolibri-demo`;
+   - `COMPOSE_PROJECT_NAME` in `<instance>/.env` contains `demo`;
+   - `--demo-instance` (alias `--i-am-demo-instance`), for the Engine hook to pass when it seeds its demo instance.
+
+   Why this: the folder name and `.env` are visible from `DATA_DIR` itself with no Docker or Engine
+   lookup, and the flag covers layouts where they are not. It stays a simple string check.
+2. **Dedicated demo device** (read-only probe; exit 6). Allowed only:
+   - an empty, unprovisioned device (no facility), or
+   - a device whose **only** facility is `IDEA Demo School` (rerun).
+
+   Anything else (another facility, or a provisioned device with no facility) is refused.
+   `tests/demo-seed-integration.sh` checks that a device with "Other School" is refused and that
+   every file in its data dir is byte-for-byte unchanged (sha256 before and after).
 
 ## Usage (on the Pi, in the Kolibri app instance directory)
 
 ```sh
 docker compose stop kolibri
-demo/provision-demo.sh ./data/kolibri        # --dry-run prints the commands
+demo/provision-demo.sh ./data/kolibri        # instance folder must contain 'demo' (or --demo-instance); --dry-run prints the commands
 docker compose start kolibri
 ```
 
