@@ -9,7 +9,9 @@ const compose = readFileSync(join(root, 'compose.yaml'), 'utf8');
 it('compose.yaml has no password, not even in a comment', () => {
   assert.doesNotMatch(compose, /PASSWORD|911!/i);
 });
-it('docs/accounts.md documents admin911!, teacher1911!, learner1911!', () => {
+it('docs/accounts.md documents admin911!, teacher1911! and learners without a password', () => {
   const d = readFileSync(join(root, 'docs/accounts.md'), 'utf8');
-  for (const u of ['admin', 'teacher1', 'learner1']) assert.match(d, new RegExp('`' + u + '`.*`' + u + '911!`'));
+  for (const u of ['admin', 'teacher1']) assert.match(d, new RegExp('`' + u + '`.*`' + u + '911!`'));
+  assert.match(d, /`learner1`.*none.*learner_can_login_with_no_password/);
+  assert.doesNotMatch(d, /learner1911!/);
 });

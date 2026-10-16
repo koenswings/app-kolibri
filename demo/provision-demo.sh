@@ -4,7 +4,9 @@
 # Uses only supported Kolibri 0.15.5 management commands, run in a ONE-SHOT
 # container against the instance's data dir while the Kolibri server is STOPPED:
 #   1. kolibri manage provisiondevice --noinput   (facility "IDEA Demo School", admin/admin911!)
-#   2. kolibri manage bulkimportusers users.csv   (class Grade 5, teacher1, learner1..3)
+#      with --facility_settings {"learner_can_login_with_no_password": true}
+#   2. kolibri manage bulkimportusers users.csv   (class Grade 5, teacher1, learner1..3;
+#      learners have no password and sign in with their username only)
 # It never execs into a running server and never uses `kolibri manage shell`.
 #
 # Usage: demo/provision-demo.sh [--dry-run] [--force-passwords] DATA_DIR
@@ -13,7 +15,8 @@
 #
 # Idempotent: re-running reuses the facility, keeps the existing superuser, and
 # (via bulkexportusers + build_users_csv.py) updates existing users by UUID with
-# PASSWORD "*" (unchanged) unless --force-passwords resets them to <account>911!.
+# PASSWORD "*" (unchanged) unless --force-passwords resets teacher1 to <account>911!
+# (learners never get a password).
 # It never deletes users (no --delete).
 set -euo pipefail
 
@@ -56,9 +59,17 @@ oneshot() {
     "$IMAGE" "$K" manage "$@"
 }
 
+# Learners sign in with NO password (learner_can_login_with_no_password). The
+# formal preset already turns it on in 0.15.5; the explicit --facility_settings
+# keeps it on if a preset ever changes. Kolibri applies both only when it CREATES
+# the facility; an existing facility keeps its settings (see demo/README.md).
+# Teachers and the admin always need their password.
+FS="$WORK/facility_settings.json"
+[ "$DRY" = 1 ] || printf '{"learner_can_login_with_no_password": true}\n' > "$FS"
 oneshot provisiondevice --facility "$FACILITY" \
   --superusername admin --superuserpassword 'admin911!' \
-  --preset formal --language_id en --noinput
+  --preset formal --language_id en \
+  --facility_settings /seed/facility_settings.json --noinput
 # bulkimportusers matches existing users by UUID only: export first, then merge.
 oneshot bulkexportusers -O /seed/existing.csv -w
 EXPORT="$WORK/existing.csv"; [ -s "$EXPORT" ] || EXPORT=""

@@ -1,5 +1,5 @@
 UUID,USERNAME,PASSWORD,FULL_NAME,USER_TYPE,IDENTIFIER,BIRTH_YEAR,GENDER,ENROLLED_IN,ASSIGNED_TO
 ,teacher1,teacher1911!,Teacher One,CLASS_COACH,,,,,Grade 5
-,learner1,learner1911!,Learner One,LEARNER,,,,Grade 5,
-,learner2,learner2911!,Learner Two,LEARNER,,,,Grade 5,
-,learner3,learner3911!,Learner Three,LEARNER,,,,Grade 5,
+,learner1,,Learner One,LEARNER,,,,Grade 5,
+,learner2,,Learner Two,LEARNER,,,,Grade 5,
+,learner3,,Learner Three,LEARNER,,,,Grade 5,
