@@ -1,14 +1,20 @@
 # Default accounts and passwords
 
 IDEA rule (Koen): every app account's default password is `<account name>911!`
-(`admin911!`, `teacher1911!`, `learner1911!`, `student01911!`). Easy to type on
+(`admin911!`, `teacher1911!`, `teacher2911!`, `learner1911!`, `student01911!`). Easy to type on
 purpose; change before real use. Never random, hard-to-type defaults.
+
+**Kolibri learners sign in with their username only (Koen, 2026-10-16).** The
+facility setting `learner_can_login_with_no_password` is on, so a typed password
+is ignored. Their stored `<account>911!` is only a fallback if a school turns the
+setting off. Teachers and the admin always need `<account>911!`.
 
 | Account | Role | Default password |
 |---|---|---|
 | `admin` | device superuser / facility admin | `admin911!` |
 | `teacher1` | coach | `teacher1911!` |
-| `learner1`… | learner | `learner1911!`… |
+| `teacher2` | coach | `teacher2911!` |
+| `learner1`… | learner | `learner1911!`… (fallback only: sign-in is username-only, `learner_can_login_with_no_password`) |
 
 - A plain install seeds no accounts (`init_data.tar.gz` stays empty); whoever
   runs the Kolibri setup wizard uses the names and passwords above. The demo

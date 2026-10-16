@@ -6,6 +6,10 @@ try to create duplicates. This merges the desired users (demo/users.csv) with a
 bulkexportusers dump of the facility:
   * existing username -> reuse its UUID; PASSWORD "*" (unchanged) unless --force-passwords
   * new username      -> blank UUID, password from demo/users.csv (<account>911!)
+Learners sign in with their username only (Koen, 2026-10-16): the facility
+setting learner_can_login_with_no_password is on. They still get the stored
+fallback password <account>911! (learner1911!, ...), which only matters if a
+school turns that setting off. Every account follows the <account>911! rule.
 Usage: build_users_csv.py DESIRED.csv [EXPORT.csv] OUT.csv [--force-passwords]
 """
 import csv
@@ -29,6 +33,7 @@ def read_rows(path):
 
 
 def password_ok(username, password):
+    # learners too: <account>911! is their stored fallback (sign-in is username-only)
     return password == username + "911!"
 
 
