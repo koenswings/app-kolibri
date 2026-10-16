@@ -30,11 +30,8 @@ class UsersCsv(unittest.TestCase):
     def test_accounts_and_passwords(self):
         names = [r["USERNAME"] for r in self.rows]
         self.assertEqual(names, ["teacher1", "learner1", "learner2", "learner3"])
-        for r in self.rows:
-            if r["USER_TYPE"] == "LEARNER":
-                self.assertEqual(r["PASSWORD"], "", "learners have no password")
-            else:
-                self.assertEqual(r["PASSWORD"], r["USERNAME"] + "911!")
+        for r in self.rows:  # learners too: stored fallback <account>911!
+            self.assertEqual(r["PASSWORD"], r["USERNAME"] + "911!")
 
     def test_roles_and_class(self):
         t = self.rows[0]
@@ -61,37 +58,32 @@ class Build(unittest.TestCase):
     def test_fresh_device(self):
         out = {r["USERNAME"]: r for r in b.build(self.desired, [])}
         self.assertTrue(all(r["UUID"] == "" for r in out.values()))
-        self.assertEqual(out["teacher1"]["PASSWORD"], "teacher1911!")
-        for n in ("learner1", "learner2", "learner3"):
-            pw = out[n]["PASSWORD"]
-            # bulkimportusers 0.15.5 needs a non-empty password: unknown placeholder, never 911!
-            self.assertTrue(pw.startswith("nopw-") and len(pw) > 20, pw)
-            self.assertNotIn("911", pw)
-        self.assertNotEqual(out["learner1"]["PASSWORD"], out["learner2"]["PASSWORD"])
+        for n in ("teacher1", "learner1", "learner2", "learner3"):
+            self.assertEqual(out[n]["PASSWORD"], n + "911!")
+        self.assertFalse(any("nopw" in r["PASSWORD"] for r in out.values()))
 
     def test_rerun_keeps_passwords_and_reuses_uuid(self):
         out = {r["USERNAME"]: r for r in b.build(self.desired, b.read_rows(self.export))}
         self.assertEqual((out["teacher1"]["UUID"], out["teacher1"]["PASSWORD"]), ("aaa", "*"))
         self.assertEqual((out["learner1"]["UUID"], out["learner1"]["PASSWORD"]), ("bbb", "*"))
-        self.assertEqual(out["learner2"]["UUID"], "")
-        self.assertTrue(out["learner2"]["PASSWORD"].startswith("nopw-"))
+        self.assertEqual((out["learner2"]["UUID"], out["learner2"]["PASSWORD"]), ("", "learner2911!"))
         self.assertNotIn("someoneelse", out)  # other users are never touched
 
     def test_force_passwords(self):
         out = {r["USERNAME"]: r for r in b.build(self.desired, b.read_rows(self.export), True)}
         self.assertEqual((out["teacher1"]["UUID"], out["teacher1"]["PASSWORD"]), ("aaa", "teacher1911!"))
-        # learners never get a password, even with --force-passwords
-        self.assertEqual((out["learner1"]["UUID"], out["learner1"]["PASSWORD"]), ("bbb", "*"))
+        # --force-passwords also resets the learners' stored fallback
+        self.assertEqual((out["learner1"]["UUID"], out["learner1"]["PASSWORD"]), ("bbb", "learner1911!"))
 
     def test_rejects_non_scheme_password(self):
         bad = [dict(self.desired[0], PASSWORD="random-Xy7#")]
         with self.assertRaises(ValueError):
             b.build(bad, [])
 
-    def test_rejects_learner_password(self):
-        bad = [dict(self.desired[1], PASSWORD="learner1911!")]
-        with self.assertRaises(ValueError):
-            b.build(bad, [])
+    def test_learner_needs_911_fallback(self):
+        for pw in ("", "random-Xy7#"):
+            with self.assertRaises(ValueError):
+                b.build([dict(self.desired[1], PASSWORD=pw)], [])
 
     def test_teacher_still_needs_911(self):
         bad = [dict(self.desired[0], PASSWORD="")]

@@ -6,7 +6,7 @@
 #   1. kolibri manage provisiondevice --noinput   (facility "IDEA Demo School", admin/admin911!)
 #      with --facility_settings {"learner_can_login_with_no_password": true}
 #   2. kolibri manage bulkimportusers users.csv   (class Grade 5, teacher1, learner1..3;
-#      learners have no password and sign in with their username only)
+#      learners sign in with their username only; their stored fallback is <account>911!)
 # It never execs into a running server and never uses `kolibri manage shell`.
 #
 # Usage: demo/provision-demo.sh [--dry-run] [--force-passwords] DATA_DIR
@@ -15,8 +15,8 @@
 #
 # Idempotent: re-running reuses the facility, keeps the existing superuser, and
 # (via bulkexportusers + build_users_csv.py) updates existing users by UUID with
-# PASSWORD "*" (unchanged) unless --force-passwords resets teacher1 to <account>911!
-# (learners never get a password).
+# PASSWORD "*" (unchanged) unless --force-passwords resets teacher1 and the
+# learners to <account>911! (learners' stored fallback; they sign in username-only).
 # It never deletes users (no --delete).
 set -euo pipefail
 

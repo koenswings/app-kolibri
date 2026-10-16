@@ -11,17 +11,13 @@ For demos (an **IDEA-DEMO** disk is docked, or the operator asks for demo mode),
 | Super admin | `admin` / `admin911!` |
 | Class | Grade 5 |
 | Class coach | `teacher1` / `teacher1911!` |
-| Learners | `learner1`…`learner3`, **no password** (sign in with the username only) |
+| Learners | `learner1`…`learner3`: sign in with the **username only**; stored fallback `learner1911!`… |
 
-The admin and teachers use the public IDEA default `<account name>911!` and
-should change it before real use. **Learners have no password** (Koen,
+Every account follows the public IDEA default `<account name>911!`; change it
+before real use. **Learners sign in with their username only** (Koen,
 2026-10-16): the facility setting `learner_can_login_with_no_password` is on, so a
-learner signs in with the username alone and any typed password is ignored.
-
-Kolibri 0.15.5 `bulkimportusers` refuses a blank password for a new user, so the
-seed stores a random placeholder (`nopw-…`) that nobody knows. It is never used
-while the setting is on. If a school turns the setting off, a teacher or admin
-sets each learner's password in Facility > Users.
+typed password is ignored. Their stored password `learner1911!`… is only a
+fallback for a school that turns that setting off.
 
 ## How it works (supported routes only)
 
@@ -44,8 +40,8 @@ data dir):
 **Idempotent:** a re-run reuses the facility, keeps the existing admin, and
 updates existing users by UUID with `PASSWORD=*` (unchanged). Kolibri 0.15.5
 matches users by UUID only, which is why step 2 exists. `--force-passwords`
-resets `teacher1` to `teacher1911!` (learners never get a password; the admin
-is never reset by `provisiondevice`). Nothing is ever deleted, and users
+resets `teacher1` and the learners to `<account>911!` (the admin is never reset
+by `provisiondevice`). Nothing is ever deleted, and users
 not in `demo/users.csv` are left alone.
 
 **Caveat:** on a device that is already provisioned with another facility,

@@ -46,4 +46,24 @@ for u in learner1 learner2 learner3; do
   c=$(login "$u" "anything-wrong"); [ "$c" = 200 ] || fail "learner $u with a random password -> $c (password must not matter)"
 done
 echo "PASS learners sign in with username only (password ignored)"
+
+# Stored learner fallback: switch the setting off (admin API, throwaway instance only),
+# learnerN911! must work and a wrong password must fail; then switch it back on.
+setting() {  # setting true|false  (as admin, via the facility dataset API)
+  local cj="$D.cj"; curl -s -c "$cj" -o /dev/null -H 'Content-Type: application/json' \
+    -d "{\"username\":\"admin\",\"password\":\"admin911!\",\"facility\":\"$F\"}" "localhost:$PORT/api/auth/session/"
+  local tok ds; tok=$(awk '/csrftoken/{print $7}' "$cj")
+  ds=$(curl -s -b "$cj" "localhost:$PORT/api/auth/facilitydataset/?facility_id=$F" | python3 -c 'import json,sys;print(json.load(sys.stdin)[0]["id"])')
+  curl -s -b "$cj" -o /dev/null -w '%{http_code}' -X PATCH -H 'Content-Type: application/json' -H "X-CSRFToken: $tok" \
+    -H "Referer: http://localhost:$PORT/" -d "{\"learner_can_login_with_no_password\": $1}" \
+    "localhost:$PORT/api/auth/facilitydataset/$ds/"; rm -f "$cj"
+}
+c=$(setting false); [ "$c" = 200 ] || fail "switch setting off -> $c"
+for u in learner1 learner2 learner3; do
+  c=$(login "$u" "${u}911!"); [ "$c" = 200 ] || fail "setting off: $u with ${u}911! -> $c"
+  c=$(login "$u" "wrong-pass"); [ "$c" = 401 ] || fail "setting off: $u with a wrong password -> $c (want 401)"
+done
+c=$(setting true); [ "$c" = 200 ] || fail "switch setting back on -> $c"
+c=$(login learner1); [ "$c" = 200 ] || fail "setting back on: learner1 username-only -> $c"
+echo "PASS stored learner fallback is learnerN911! (setting off), username-only again after switching back on"
 echo "ALL PASS"
