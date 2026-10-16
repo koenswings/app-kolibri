@@ -10,7 +10,7 @@ x-app:
   category: education
   icon: icon.png
   author: Koen Swings
-  version: 97bd07c3e6e8d3d170f16f35721d64fe008d6c58
+  version: 5ab9f6428b7143c42feee29cc4b9bf950bab3b3e
   instanceName: kolibri
 services:
   kolibri:
@@ -36,6 +36,10 @@ services:
     #  - ${port}:8080
     #  - 3000:3000
     environment:
+      # Engine writes port= in instance .env for host-network; do not default to 8080
+      # (collides with Console). Fixtures may still pin 18080 via their own .env.
+      - KOLIBRI_HTTP_PORT=${port}
+      - KOLIBRI_LISTEN_PORT=${port}
       - KOLIBRI_RUN_MODE=docker
       # The following options do not seem to take effect
       #- KOLIBRI_PROVISIONDEVICE_FACILITY=Powerberries
