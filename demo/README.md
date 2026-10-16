@@ -71,16 +71,46 @@ inside an existing Kolibri. The script has two guards and changes nothing when e
    `tests/demo-seed-integration.sh` checks that a device with "Other School" is refused and that
    every file in its data dir is byte-for-byte unchanged (sha256 before and after).
 
-## Usage (on the Pi, in the Kolibri app instance directory)
+## Usage: install the "Kolibri Demo" instance (demo/install-demo.sh)
+
+The demo is always its **own** Kolibri instance whose display name is exactly
+`Kolibri Demo` (technical id e.g. `kolibri-demo`), installed alongside any real
+Kolibri. Existing instances are never touched. `install-demo.sh` drives the IDEA
+Engine only through the store command queue, like the Console: it pushes a command
+onto `engineDB[<engine>].commands` and follows the command-log trace to Done/Failed
+(helper `demo/engine-cmd.mjs`). No docker compose.
 
 ```sh
-docker compose stop kolibri
-demo/provision-demo.sh ./data/kolibri        # instance folder must contain 'demo' (or --demo-instance); --dry-run prints the commands
-docker compose start kolibri
+demo/install-demo.sh --engine-dir ~/idea/agent-engine-dev --channels idea-demo-kolibri-export.tar [--disk <diskId>]
+```
+
+1. Find the instance named exactly `Kolibri Demo` on a disk docked here (two of them: refuse, exit 10).
+2. None: `installApp kolibri-1.0 <disk> --name "Kolibri Demo"` with no `--source`, so the builder/GitHub
+   route starts from a clean bundle and never copies a school's data. It is then looked up by name; if the
+   Engine dropped the name (exit 13) nothing is seeded.
+3. `stopInstance`, then `provision-demo.sh --demo-instance <disk>/instances/<id>/data/kolibri`, then one-shot
+   `importchannel`/`importcontent disk` for every channel in the IDEA-DEMO export, then `startInstance`
+   (also after a seed failure).
+4. A rerun finds the same instance and re-seeds it; no duplicate. `--instance <id>` is refused unless that
+   instance is the demo (exit 11).
+
+Exit codes: 0 ok, 2 usage, 3 Engine unreachable, 10 two demo instances, 11 target refused, 12 installApp
+Failed, 13 no instance with the demo name after install, 14 stopInstance Failed, 15 provision failed,
+16 channel import failed, 17 startInstance Failed, 18 no/ambiguous target disk. The last stdout line is JSON
+(`result`, `id`, `name`, `disk`, `port`). Sourcing the script defines its functions without running it, so
+an Engine hook (idea#235, Console demo button) can reuse it.
+
+**Depends on the Engine fix (Axle, pending):** quote-aware `installApp --name "Kolibri Demo"` and the
+instance name in the store record. Until it lands, the script fails closed with exit 13.
+
+### Seeding by hand (instance already stopped)
+
+```sh
+demo/provision-demo.sh --demo-instance ./data/kolibri   # --dry-run prints the commands
 ```
 
 Env: `IMAGE` (default `koenswings/kolibri:1.0-0.15.5-dev`), `DOCKER`. Needs
-`python3` on the host.
+`python3` and `node` on the host.
 
 ## Lessons: teacher step
 
@@ -93,6 +123,7 @@ set it **Active** / visible to the class.
 ## Tests
 
 ```sh
+node --test tests/                  # includes install-demo.test.mjs (mocked Engine queue)
 python3 -m unittest discover -s tests -p 'test_*.py'   # CSV + script logic
 tests/demo-seed-integration.sh                          # throwaway Kolibri 0.15.5 container
 ```

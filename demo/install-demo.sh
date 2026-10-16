@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# Install (or re-seed) the separate "Kolibri Demo" instance through the IDEA Engine.
+#
+# Koen, 2026-10-16: the demo is always its OWN Kolibri instance named "Kolibri Demo",
+# installed alongside any real Kolibri. Existing instances are never touched.
+#
+# The Engine is driven ONLY through its store command queue, exactly like the Console:
+# the command is pushed onto engineDB[<this engine>].commands and the matching
+# command-log trace is followed to ok (Done) or error (Failed). No docker compose, no
+# raw container lifecycle. Helper: demo/engine-cmd.mjs (list | disks | send "<cmd>").
+#
+# Flow:
+#   1. list instances on disks docked to this Engine; pick the one whose display name is
+#      exactly "Kolibri Demo" (the technical id, e.g. kolibri-demo, does not matter).
+#      More than one -> refuse (exit 10).
+#   2. none -> installApp <app> <disk> --name "Kolibri Demo"  (no --source: builder/GitHub
+#      route, a clean bundle, never a copy of a school's data), then look it up again by name.
+#   3. stopInstance <id> <disk>
+#   4. demo/provision-demo.sh --demo-instance <data dir>  (IDEA Demo School, users; it also
+#      refuses a device that holds any other facility -> fail closed)
+#   5. one-shot importchannel/importcontent disk for every IDEA-DEMO channel in the export
+#   6. startInstance <id> <disk>   (also attempted after a failure in 4/5)
+# A rerun finds the existing "Kolibri Demo" and re-seeds it: no second instance.
+#
+# Usage: demo/install-demo.sh [options]
+#   --engine-dir DIR    Engine checkout (config.yaml, store-identity/, node_modules)  [$ENGINE_DIR]
+#   --disk ID           target disk for a NEW install (default: the only docked disk)   [$DEMO_DISK]
+#   --instance ID       re-seed this instance; refused unless its name is exactly the demo name
+#   --channels DIR|TAR  IDEA-DEMO export (holds KOLIBRI_DATA/)                          [$DEMO_CHANNELS]
+#   --no-channels       skip the channel import
+#   --app ID            app to install (default kolibri-1.0)                            [$DEMO_APP]
+#   --force-passwords   passed to provision-demo.sh
+#   --dry-run           print the Engine commands, change nothing
+# Env for hooks/tests: ENGINE_CMD (command prefix replacing "node engine-cmd.mjs DIR"),
+#   PROVISION (default demo/provision-demo.sh), DISKS_ROOT (default /disks), IMAGE, DOCKER.
+# Last stdout line is JSON: {"result":"installed|reseeded","id":..,"name":..,"disk":..,"port":..}
+#
+# Exit codes: 0 ok | 2 usage | 3 Engine/store unreachable | 10 more than one demo instance |
+#   11 target refused (not the demo instance) | 12 installApp Failed/timeout |
+#   13 install reported Done but no instance with the demo name (Engine dropped --name) |
+#   14 stopInstance Failed | 15 provision-demo.sh failed | 16 channel import failed |
+#   17 startInstance Failed | 18 no/ambiguous target disk
+set -uo pipefail
+
+DEMO_NAME="Kolibri Demo"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+die() { local c=$1; shift; echo "ERROR: $*" >&2; exit "$c"; }
+
+engine() {  # engine list|disks|send "<command>"
+  if [ -n "${ENGINE_CMD:-}" ]; then $ENGINE_CMD "$@"
+  else node "$HERE/engine-cmd.mjs" "$ENGINE_DIR" "$@"; fi
+}
+
+# Instances whose display name is exactly DEMO_NAME: prints "id<TAB>storedOn<TAB>device<TAB>port"
+demo_instances() {  # $1 = JSON from `engine list`
+  printf '%s' "$1" | node -e '
+    const name = process.argv[1]; let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
+      for (const i of JSON.parse(s || "[]")) if (i && i.name === name)
+        console.log([i.id, i.storedOn, i.device ?? "", i.port ?? ""].join("\t")) })' "$DEMO_NAME"
+}
+instance_by_id() {  # $1 JSON, $2 id: prints "name<TAB>storedOn<TAB>device<TAB>port"
+  printf '%s' "$1" | node -e '
+    const id = process.argv[1]; let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
+      const i = JSON.parse(s || "[]").find(i => i && i.id === id)
+      if (i) console.log([i.name, i.storedOn, i.device ?? "", i.port ?? ""].join("\t")) })' "$2"
+}
+
+send() {  # send "<command>" -> 0 Done, 1 Failed, 2 timeout, 3 unreachable
+  echo "engine: $1" >&2
+  [ "$DRY" = 1 ] && return 0
+  local out rc; out="$(engine send "$1")"; rc=$?
+  [ -n "$out" ] && echo "$out" >&2
+  return $rc
+}
+
+import_channels() {  # $1 data dir
+  local src="$CHANNELS" tmp=""
+  if [ -f "$src" ]; then tmp="$(mktemp -d)"; tar -xf "$src" -C "$tmp" || return 1; src="$tmp"; fi
+  [ -d "$src/KOLIBRI_DATA/content/databases" ] || { echo "no KOLIBRI_DATA/content/databases in $CHANNELS" >&2; return 1; }
+  local db cid rc=0
+  for db in "$src"/KOLIBRI_DATA/content/databases/*.sqlite3; do
+    cid="$(basename "$db" .sqlite3)"
+    for verb in importchannel importcontent; do
+      echo "+ kolibri manage $verb disk $cid /export" >&2
+      [ "$DRY" = 1 ] && continue
+      ${DOCKER:-docker} run --rm --network none -e KOLIBRI_RUN_MODE=docker \
+        -v "$1:/root/.kolibri" -v "$src/KOLIBRI_DATA:/export:ro" \
+        "${IMAGE:-koenswings/kolibri:1.0-0.15.5-dev}" ./kolibri-0.15.5 manage "$verb" disk "$cid" /export || rc=1
+    done
+  done
+  [ -n "$tmp" ] && rm -rf "$tmp"
+  return $rc
+}
+
+main() {
+  ENGINE_DIR="${ENGINE_DIR:-}"; DISK="${DEMO_DISK:-}"; TARGET=""; CHANNELS="${DEMO_CHANNELS:-}"
+  APP="${DEMO_APP:-kolibri-1.0}"; NOCH=0; DRY=0; FORCE=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --engine-dir) ENGINE_DIR="${2:?}"; shift 2 ;;
+      --disk) DISK="${2:?}"; shift 2 ;;
+      --instance) TARGET="${2:?}"; shift 2 ;;
+      --channels) CHANNELS="${2:?}"; shift 2 ;;
+      --no-channels) NOCH=1; shift ;;
+      --app) APP="${2:?}"; shift 2 ;;
+      --force-passwords) FORCE=(--force-passwords); shift ;;
+      --dry-run) DRY=1; shift ;;
+      -h|--help) sed -n '2,45p' "$0"; exit 0 ;;
+      *) die 2 "unknown argument $1" ;;
+    esac
+  done
+  [ -n "${ENGINE_CMD:-}" ] || [ -n "$ENGINE_DIR" ] || die 2 "--engine-dir (or ENGINE_DIR) is required"
+  [ "$NOCH" = 1 ] || [ -n "$CHANNELS" ] || die 2 "--channels <IDEA-DEMO export> is required (or --no-channels)"
+
+  local list; list="$(engine list)" || die 3 "Engine store not reachable"
+  local id disk dev port result
+  if [ -n "$TARGET" ]; then
+    local row; row="$(instance_by_id "$list" "$TARGET")"
+    [ -n "$row" ] || die 11 "instance $TARGET is not on a disk docked here"
+    [ "$(cut -f1 <<<"$row")" = "$DEMO_NAME" ] || die 11 "refusing $TARGET: its name is '$(cut -f1 <<<"$row")', not '$DEMO_NAME'"
+    id="$TARGET"; IFS=$'\t' read -r _ disk dev port <<<"$row"
+  else
+    local rows n; rows="$(demo_instances "$list")"; n=$(grep -c . <<<"$rows")
+    [ "$n" -gt 1 ] && die 10 "$n instances are named '$DEMO_NAME'; pass --instance <id>"
+    if [ "$n" = 1 ]; then IFS=$'\t' read -r id disk dev port <<<"$rows"; fi
+  fi
+
+  if [ -z "${id:-}" ]; then
+    if [ -z "$DISK" ]; then
+      local disks; disks="$(engine disks)" || die 3 "Engine store not reachable"
+      DISK="$(printf '%s' "$disks" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s||"[]");if(d.length===1)console.log(d[0].id)})')"
+      [ -n "$DISK" ] || die 18 "pass --disk <id>: not exactly one disk is docked"
+    fi
+    send "installApp $APP $DISK --name \"$DEMO_NAME\"" || die 12 "installApp Failed (see the Engine command log)"
+    if [ "$DRY" = 1 ]; then echo '{"result":"dry-run"}'; return 0; fi
+    list="$(engine list)" || die 3 "Engine store not reachable"
+    local rows; rows="$(demo_instances "$list")"
+    [ "$(grep -c . <<<"$rows")" = 1 ] || die 13 "installApp reported Done but no single instance is named '$DEMO_NAME'"
+    IFS=$'\t' read -r id disk dev port <<<"$rows"; result=installed
+  else
+    result=reseeded
+  fi
+
+  local data="${DISKS_ROOT:-/disks}/$dev/instances/$id/data/kolibri"
+  send "stopInstance $id $disk" || die 14 "stopInstance Failed"
+  local rc=0
+  ${PROVISION:-"$HERE/provision-demo.sh"} --demo-instance "${FORCE[@]}" $([ "$DRY" = 1 ] && echo --dry-run) "$data" || rc=15
+  if [ $rc = 0 ] && [ "$NOCH" = 0 ]; then import_channels "$data" || rc=16; fi
+  send "startInstance $id $disk" || { [ $rc = 0 ] && rc=17; echo "ERROR: startInstance Failed" >&2; }
+  [ $rc = 0 ] || die $rc "demo seed failed (exit $rc); the instance was started again if possible"
+  printf '{"result":"%s","id":"%s","name":"%s","disk":"%s","port":"%s"}\n' "$result" "$id" "$DEMO_NAME" "$disk" "$port"
+}
+
+# Sourcing (e.g. from an Engine hook, idea#235) defines the functions without running.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then main "$@"; fi
