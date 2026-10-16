@@ -19,6 +19,36 @@ before real use. **Learners sign in with their username only** (Koen,
 typed password is ignored. Their stored password `learner1911!`… is only a
 fallback for a school that turns that setting off.
 
+
+## Install the demo instance: `demo/install-demo.sh` (recommended)
+
+```sh
+sudo demo/install-demo.sh --disk <diskId> --channels idea-demo-kolibri-export.tar   # first run
+sudo demo/install-demo.sh --channels idea-demo-kolibri-export.tar                   # rerun: reuses it
+```
+
+It creates (or reuses) **a separate Engine instance named exactly `Kolibri-Demo`** and never touches any other instance:
+
+1. Looks up the instance named exactly `Kolibri-Demo` on this Engine (`demo/engine-cmd.mjs`: the store's command
+   queue, the same one the Console and the Engine `client` use). If there is none, it runs
+   `installApp kolibri-latest <disk> --name Kolibri-Demo`. If there are two or more, it refuses (exit 12).
+2. Checks the target: its `compose.yaml` `x-app.instanceName` must be exactly `Kolibri-Demo` and it must be on
+   `--disk` if given (exit 13 otherwise).
+3. `stopInstance` (Engine), then `provision-demo.sh --demo-instance` (IDEA Demo School, admin/teacher1/teacher2 with
+   `<account>911!`, learner1-3 username-only), then a one-shot `kolibri manage importchannel disk` and
+   `importcontent disk` per channel of the IDEA-DEMO export (3 channels, 25 resources), then `startInstance` (Engine).
+
+There is no raw `docker run` or `compose up` for the install. The only one-shot containers are the seed and import
+steps, which mount only this instance's data dir while it is stopped. A rerun finds the same instance, so there is
+no second install, no new users and nothing re-imported.
+Exit codes: 0 ok, 2 usage, 3 Engine unreachable, 11 install, 12 ambiguous name, 13 target check, 14 stop, 15 seed,
+16 channel import, 17 start. This makes it usable from an Engine hook (idea#235).
+
+The name is `Kolibri-Demo`, not `Kolibri Demo`, because the Engine splits `installApp` arguments on whitespace,
+so `--name` cannot hold a space (question for Axle in PR #6). `tests/install-demo-check.sh <url>` checks a running
+demo: the only facility is IDEA Demo School, the logins work, and the 3 channels hold 25 resources.
+`tests/fingerprint-kolibri.py` fingerprints other instances (read-only) before and after.
+
 ## How it works (supported routes only)
 
 The script never uses `kolibri manage shell` and never execs into a running
