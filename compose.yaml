@@ -40,5 +40,12 @@ services:
       # (collides with Console). Fixtures may still pin 18080 via their own .env.
       - KOLIBRI_HTTP_PORT=${port}
       - KOLIBRI_LISTEN_PORT=${port}
+      # Unique Kolibri/Morango instance id per instance (idea kit, 2026-10-17). Kolibri 0.15.5 starts
+      # every device from the same pre-migrated home template (same Morango DatabaseIDModel), and with
+      # network_mode host every instance on one Engine has the same hostname, MAC and db path, so a real
+      # Kolibri and its "Kolibri Demo" got the SAME instance_id. Morango hashes MORANGO_SYSTEM_ID into the
+      # instance id; Engine hostname + instance port is unique across the kit. Existing data is kept: on the
+      # next start Morango just records a new current InstanceIDModel.
+      - MORANGO_SYSTEM_ID=idea-${hostname}-${port}
       - KOLIBRI_RUN_MODE=docker
       # Default accounts and their login scheme: see docs/accounts.md.
