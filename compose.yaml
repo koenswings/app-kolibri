@@ -12,6 +12,14 @@ x-app:
   author: Koen Swings
   version: 5ab9f6428b7143c42feee29cc4b9bf950bab3b3e
   instanceName: kolibri
+  # Backups leave out the channel content files (agent-engine-dev#241; needs that Engine change, inert
+  # without it). Paths are relative to the instance folder: ./data/kolibri is KOLIBRI_HOME (/root/.kolibri),
+  # so content/storage holds the channel files (tens of GB, re-importable from Studio, a peer or a disk).
+  # Kept: db.sqlite3 (facilities, users, progress), content/databases (channel metadata, MBs), options.ini.
+  # A restored Kolibri lists its channels but needs the content re-imported (importcontent).
+  backup:
+    exclude:
+      - data/kolibri/content/storage
 services:
   kolibri:
     image: koenswings/kolibri:1.0-0.15.5-dev
