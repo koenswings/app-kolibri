@@ -50,6 +50,15 @@
 #   17 startInstance Failed | 18 no/ambiguous target disk | 19 lessons/quiz seed failed
 set -uo pipefail
 
+# Instance folder (idea#247 kit Engines): a data disk keeps instances in
+# $DISKS_ROOT/<device>/instances/<id>; the Engine's system disk keeps them in /instances/<id>.
+instance_dir() {  # $1 device, $2 instance id
+  local d="${DISKS_ROOT:-/disks}/$1/instances/$2" sys="${SYSTEM_INSTANCES_ROOT:-/instances}/$2"
+  if [ ! -d "$d" ] && [ -d "$sys" ]; then d="$sys"; fi
+  printf '%s\n' "$d"
+}
+
+
 DEMO_NAME="Kolibri Demo"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -179,7 +188,7 @@ main() {
     result=reseeded
   fi
 
-  local inst="${DISKS_ROOT:-/disks}/$dev/instances/$id" data
+  local inst data; inst="$(instance_dir "$dev" "$id")"
   data="$inst/data/kolibri"
   if [ "$DRY" != 1 ]; then
     [ -f "$inst/compose.yaml" ] || die 11 "refusing $id: $inst/compose.yaml missing"
