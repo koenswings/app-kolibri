@@ -21,6 +21,10 @@
 #      refuses a device that holds any other facility -> fail closed)
 #   5. one-shot importchannel/importcontent disk for every IDEA-DEMO channel in the export
 #   6. startInstance <id> <disk>   (also attempted after a failure in 4/5)
+#   7. demo/seed_classwork.py against the running demo as teacher1 (Kolibri REST API, what
+#      Coach > Plan does): one lesson per channel + "Grade 5 Practice Quiz" from the
+#      channels' exercises, assigned to Grade 5 and started. Skipped with --no-channels
+#      or --no-classwork. Exit 19 if it fails (the instance stays running).
 # A rerun finds the existing "Kolibri Demo" and re-seeds it: no second instance.
 #
 # Usage: demo/install-demo.sh [options]
@@ -31,6 +35,7 @@
 #   --instance ID       re-seed this instance; refused unless its name is exactly the demo name
 #   --channels DIR|TAR  IDEA-DEMO export (holds KOLIBRI_DATA/)                          [$DEMO_CHANNELS]
 #   --no-channels       skip the channel import
+#   --no-classwork      skip step 7 (lessons + quiz through the Kolibri API)
 #   --app ID            app to install (default kolibri-1.0)                            [$DEMO_APP]
 #   --force-passwords   passed to provision-demo.sh
 #   --dry-run           print the Engine commands, change nothing
@@ -42,7 +47,7 @@
 #   11 target refused (not the demo instance) | 12 installApp Failed/timeout |
 #   13 install reported Done but no instance with the demo name (Engine dropped --name) |
 #   14 stopInstance Failed | 15 provision-demo.sh failed | 16 channel import failed |
-#   17 startInstance Failed | 18 no/ambiguous target disk
+#   17 startInstance Failed | 18 no/ambiguous target disk | 19 lessons/quiz seed failed
 set -uo pipefail
 
 DEMO_NAME="Kolibri Demo"
@@ -125,7 +130,7 @@ import_channels() {  # $1 data dir
 
 main() {
   ENGINE_DIR="${ENGINE_DIR:-}"; DISK="${DEMO_DISK:-}"; TARGET=""; CHANNELS="${DEMO_CHANNELS:-}"
-  SRC="${DEMO_SOURCE:-}"; APP="${DEMO_APP:-kolibri-1.0}"; NOCH=0; DRY=0; FORCE=()
+  SRC="${DEMO_SOURCE:-}"; APP="${DEMO_APP:-kolibri-1.0}"; NOCH=0; NOCW=0; DRY=0; FORCE=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --engine-dir) ENGINE_DIR="${2:?}"; shift 2 ;;
@@ -134,6 +139,7 @@ main() {
       --instance) TARGET="${2:?}"; shift 2 ;;
       --channels) CHANNELS="${2:?}"; shift 2 ;;
       --no-channels) NOCH=1; shift ;;
+      --no-classwork) NOCW=1; shift ;;
       --app) APP="${2:?}"; shift 2 ;;
       --force-passwords) FORCE=(--force-passwords); shift ;;
       --dry-run) DRY=1; shift ;;
@@ -188,6 +194,12 @@ main() {
   if [ $rc = 0 ]; then
     port="$(sed -n 's/^port=//p' "$inst/.env" 2>/dev/null | head -1)"; port="${port:-$port}"
     wait_http "$port" || rc=17
+  fi
+  if [ $rc = 0 ] && [ "$NOCH" = 0 ] && [ "$NOCW" = 0 ]; then
+    echo "+ seed_classwork.py --url http://127.0.0.1:$port" >&2
+    if [ "$DRY" != 1 ]; then
+      ${CLASSWORK:-python3 "$HERE/seed_classwork.py"} --url "http://127.0.0.1:$port" >&2 || rc=19
+    fi
   fi
   [ $rc = 0 ] || die $rc "demo seed failed (exit $rc); the instance was started again if possible"
   printf '{"result":"%s","id":"%s","name":"%s","disk":"%s","port":"%s"}\n' "$result" "$id" "$DEMO_NAME" "$disk" "$port"

@@ -17,8 +17,8 @@ function setup(instances = [structuredClone(school)], disks = [{ id: 'DISK1', na
   writeFileSync(state, JSON.stringify({ instances, disks, commands: [] }))
   const prov = join(dir, 'prov.sh')
   writeFileSync(prov, `#!/bin/sh\necho "$@" >> ${plog}\nexit \${FAKE_PROV_RC:-0}\n`, { mode: 0o755 })
-  const run = (args = [], env = {}) => {
-    const r = spawnSync('bash', [SCRIPT, '--no-channels', ...args], { encoding: 'utf8', env: {
+  const run = (args = [], env = {}, ch = ['--no-channels']) => {
+    const r = spawnSync('bash', [SCRIPT, ...ch, ...args], { encoding: 'utf8', env: {
       ...process.env, ENGINE_CMD: `node ${join(root, 'tests/fake-engine.mjs')}`, FAKE_STATE: state,
       PROVISION: prov, DISKS_ROOT: join(dir, 'disks'), DOCKER: 'true', CURL: 'true', ...env } })
     return { ...r, st: JSON.parse(readFileSync(state, 'utf8')), prov: (() => { try { return readFileSync(plog, 'utf8') } catch { return '' } })() }
@@ -126,4 +126,37 @@ it('refuses an instance whose compose.yaml instanceName is not "Kolibri Demo" (e
   assert.equal(r.status, 11, r.stderr)
   assert.equal(r.prov, '')
   assert.ok(!r.st.commands.some(c => /^stopInstance/.test(c)))
+})
+
+function fakeExport(dir) {
+  const ex = join(dir, 'export'); mkdirSync(join(ex, 'KOLIBRI_DATA/content/databases'), { recursive: true })
+  writeFileSync(join(ex, 'KOLIBRI_DATA/content/databases/6dc027c8b780532a9a9d16fd7a3a008a.sqlite3'), '')
+  const cw = join(dir, 'cw.sh'), cwlog = join(dir, 'cw.log')
+  writeFileSync(cw, `#!/bin/sh\necho "$@" >> ${cwlog}\nexit \${FAKE_CW_RC:-0}\n`, { mode: 0o755 })
+  return { ex, cw, cwlog }
+}
+
+it('after the channel import and start, seeds lessons + quiz on the running demo (step 7)', () => {
+  const { run, dir } = setup()
+  const { ex, cw, cwlog } = fakeExport(dir)
+  const r = run([], { CLASSWORK: cw }, ['--channels', ex])
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.st.commands.slice(-1), ['startInstance kolibri-demo DISK1'])
+  assert.equal(readFileSync(cwlog, 'utf8').trim(), '--url http://127.0.0.1:8099')
+})
+
+it('lessons/quiz seed failure -> exit 19, instance stays started', () => {
+  const { run, dir } = setup()
+  const { ex, cw } = fakeExport(dir)
+  const r = run([], { CLASSWORK: cw, FAKE_CW_RC: '1' }, ['--channels', ex])
+  assert.equal(r.status, 19, r.stderr)
+  assert.equal(r.st.instances.find(i => i.id === 'kolibri-demo').status, 'Running')
+})
+
+it('--no-classwork skips step 7', () => {
+  const { run, dir } = setup()
+  const { ex, cw, cwlog } = fakeExport(dir)
+  const r = run(['--no-classwork'], { CLASSWORK: cw }, ['--channels', ex])
+  assert.equal(r.status, 0, r.stderr)
+  assert.throws(() => readFileSync(cwlog, 'utf8'))
 })
