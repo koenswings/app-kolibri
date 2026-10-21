@@ -114,13 +114,18 @@ demo/provision-demo.sh --demo-instance ./data/kolibri   # --dry-run prints the c
 Env: `IMAGE` (default `koenswings/kolibri:1.0-0.15.5-dev`), `DOCKER`. Needs
 `python3` and `node` on the host.
 
-## Lessons: teacher step
+## Lessons and quiz (demo/seed_classwork.py, idea#294)
 
-Lessons are not seeded (no safe supported command for them in 0.15.5). After the
-channel builder has imported the IDEA-DEMO channels, log in as `teacher1` →
-**Coach** → **Grade 5** → **Plan** → **Lessons** → **New lesson**, and create one
-lesson per channel (Grade 5 Science, Early Reading, Maths), add resources, then
-set it **Active** / visible to the class.
+Step 7 of `install-demo.sh` (after the channels are imported and the demo is running) runs
+`demo/seed_classwork.py --url http://127.0.0.1:<port>`. It signs in as `teacher1` and uses
+Kolibri's own REST API, i.e. exactly what Coach > Plan does (no `manage shell`, no DB writes):
+
+- one lesson per channel, "<channel> lesson", with every available resource, active for Grade 5;
+- quiz **Grade 5 Practice Quiz**: the questions of the channels' exercises (channel order,
+  max 10), assigned to Grade 5, fixed order, started (active).
+
+Idempotent (same titles are updated, not duplicated). `--no-classwork` skips it; exit 19 if it fails.
+Exercises come from the channel builder's `*.exercise.json` (IDEA-DEMO disk: Maths + Early Reading).
 
 ## Tests
 
@@ -128,6 +133,7 @@ set it **Active** / visible to the class.
 node --test tests/                  # includes install-demo.test.mjs (mocked Engine queue)
 python3 -m unittest discover -s tests -p 'test_*.py'   # CSV + script logic
 tests/demo-seed-integration.sh                          # throwaway Kolibri 0.15.5 container
+tests/classwork_check.py --url http://127.0.0.1:PORT    # TEST instance only: learner1 does an exercise + the quiz, teacher1 sees progress
 ```
 
 Content: `agent-app-dev/demo/idea-demo/` (publisher sources, checksums and credits).
