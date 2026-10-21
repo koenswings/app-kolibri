@@ -87,7 +87,7 @@ def main(argv=None):
        "learner sees %d active lesson(s): %s" % (len(lessons), ", ".join(l["title"] for l in lessons)))
 
     exercises = []
-    for ch in L.get("/api/content/channel/", available="true"):
+    for ch in [c for c in L.get("/api/content/channel/", available="true") if c["name"] in sc.DEMO_CHANNELS]:
         exercises += [n for n in sc.tree(L, ch) if n["kind"] == "exercise"]
     ok(exercises, "%d exercise(s) on the device" % len(exercises))
     for n in exercises:

@@ -6,7 +6,7 @@ it does exactly what a teacher does in Coach > Plan (no `kolibri manage shell`,
 no database writes from outside Kolibri). Python 3 stdlib only.
 
 Creates in class "Grade 5" of IDEA Demo School:
-  * one lesson per channel on the device ("<channel> lesson"): every available
+  * one lesson per IDEA-DEMO channel (Early Reading, Grade 5 Science, Maths; --channel) ("<channel> lesson"): every available
     resource of the channel, in channel order, active (visible to Grade 5);
   * one quiz "Grade 5 Practice Quiz": the questions of every exercise in the
     channels (in channel order, at most --max-questions), assigned to Grade 5,
@@ -31,6 +31,8 @@ import urllib.request
 
 FACILITY = "IDEA Demo School"
 QUIZ_TITLE = "Grade 5 Practice Quiz"
+# The IDEA-DEMO channels (by name). Other channels on the device (e.g. Khan Academy) are ignored.
+DEMO_CHANNELS = ("Early Reading", "Grade 5 Science", "Maths")
 
 
 class Api(object):
@@ -150,6 +152,7 @@ def main(argv=None):
     ap.add_argument("--password", default="teacher1911!")
     ap.add_argument("--class", dest="klass", default="Grade 5")
     ap.add_argument("--max-questions", type=int, default=10)
+    ap.add_argument("--channel", action="append", help="channel name to use (repeatable; default: %s)" % ", ".join(DEMO_CHANNELS))
     ap.add_argument("--no-lessons", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
@@ -159,7 +162,9 @@ def main(argv=None):
     if len(cls) != 1:
         raise SystemExit("ERROR: expected one class %r in %s, found %d" % (a.klass, FACILITY, len(cls)))
     cid = cls[0]["id"]
-    channels = sorted(api.get("/api/content/channel/", available="true"), key=lambda c: c["name"])
+    names = a.channel or list(DEMO_CHANNELS)
+    channels = sorted((c for c in api.get("/api/content/channel/", available="true") if c["name"] in names),
+                      key=lambda c: c["name"])
     lessons, exercises = [], []
     for ch in channels:
         res = tree(api, ch)
