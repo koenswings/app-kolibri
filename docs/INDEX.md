@@ -6,4 +6,6 @@ For organization-wide documentation guidance, see [`koenswings/idea/docs/INDEX.m
 
 Update this file whenever an authoritative doc is added or significantly revised.
 
-No authoritative documentation is present in this repository’s `docs/` directory yet.
+| Doc | Purpose |
+|-----|---------|
+| [accounts.md](./accounts.md) | Default accounts and `<account>911!` passwords; demo accounts (IDEA Demo School, Grade 5) |

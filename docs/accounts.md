@@ -14,11 +14,12 @@ setting off. Teachers and the admin always need `<account>911!`.
 | `admin` | device superuser / facility admin | `admin911!` |
 | `teacher1` | coach | `teacher1911!` |
 | `teacher2` | coach | `teacher2911!` |
-| `learner1`… | learner | `learner1911!`… (fallback only: sign-in is username-only, `learner_can_login_with_no_password`) |
+| `learner1`–`learner3` | learner | `learner1911!`… (fallback only: sign-in is username-only, `learner_can_login_with_no_password`) |
 
 - A plain install seeds no accounts (`init_data.tar.gz` stays empty); whoever
   runs the Kolibri setup wizard uses the names and passwords above. The demo
-  seed (`demo/`, PR #4) creates exactly these accounts.
+  seed (`demo/provision-demo.sh`) creates facility **IDEA Demo School** with
+  class **Grade 5**: `admin`, `teacher1`, `teacher2`, `learner1`–`learner3`.
 - Kolibri accepts any non-empty password, so no policy change is needed.
 - `compose.yaml` contains no passwords (the commented-out
   `KOLIBRI_PROVISIONDEVICE_*` lines, which never took effect, were removed).
