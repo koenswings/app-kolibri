@@ -12,12 +12,12 @@ x-app:
   author: Koen Swings
   version: 5ab9f6428b7143c42feee29cc4b9bf950bab3b3e
   instanceName: kolibri
-  # updateApp (idea#351, agent-app-dev#23). healthTimeout in seconds: placeholder 600 (10 min)
-  # until the #351 first-start timings after migration on idea04 are in.
+  # updateApp (idea#351, agent-app-dev#23). healthTimeout: integer seconds.
+  # Measured on idea04 (Pi 4, 2026-10-28, idea#351): 0.15.5 -> 0.19.5 first start 373-381 s to /api/public/info/ 200 (34.5k content nodes, db 125 MB). About 2.4x margin, since a field Kolibri with all 14 channels has a larger database.
   healthCheck:
     path: /api/public/info/
     expect: '"application":"kolibri"'
-  healthTimeout: 600
+  healthTimeout: 900
   updatesFrom: []        # no earlier App major exists; minor updates need no entry
   migrationNote: >
     Kolibri updates its database on the first start of the new version. This can take
