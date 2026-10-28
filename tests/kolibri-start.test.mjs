@@ -126,10 +126,12 @@ it('an unreadable version moves nothing and says why', () => {
   assert.equal(r.status, 1); assert.ok(ls(d).includes('job_storage.sqlite3')); assert.match(r.stdout, /could not read image Kolibri version/);
 });
 
-it('refuses to start without a zip-content port, or with the HTTP port reused', () => {
+it('an empty zip-content port falls back to 8081 with a warning; the HTTP port reused is refused', () => {
   const d = home({});
-  let r = run(d, '0.19.5', { KOLIBRI_ZIP_CONTENT_PORT: '' });
-  assert.equal(r.status, 78); assert.match(r.stdout, /KOLIBRI_ZIP_CONTENT_PORT is empty/);
+  const bin = join(d, 'k');
+  writeFileSync(bin, '#!/bin/sh\necho "zip=$KOLIBRI_ZIP_CONTENT_PORT"\n', { mode: 0o755 });
+  let r = run(d, '0.19.5', { KOLIBRI_ZIP_CONTENT_PORT: '', KOLIBRI_BIN: bin });
+  assert.equal(r.status, 0); assert.match(r.stdout, /using 8081/); assert.match(r.stdout, /zip=8081/);
   r = run(d, '0.19.5', { KOLIBRI_ZIP_CONTENT_PORT: '3101' });
   assert.equal(r.status, 78); assert.match(r.stdout, /equals KOLIBRI_HTTP_PORT/);
 });
@@ -166,7 +168,7 @@ it('compose: start step as entrypoint, data path unchanged, zip port from port_z
   assert.match(compose, /- \.\/kolibri-start\.sh:\/idea\/kolibri-start\.sh:ro/);
   assert.match(compose, /- \.\/data\/kolibri:\/root\/\.kolibri/);
   assert.match(compose, /- KOLIBRI_HOME=\/root\/\.kolibri/);
-  assert.match(compose, /- KOLIBRI_ZIP_CONTENT_PORT=\$\{port_zip:-\}/);
+  assert.match(compose, /- KOLIBRI_ZIP_CONTENT_PORT=\$\{port_zip:-8081\}/);
   assert.match(compose, /restart: unless-stopped/);
   assert.doesNotMatch(compose, /KOLIBRI_ZIP_CONTENT_PORT=\d/);
 });

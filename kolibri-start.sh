@@ -10,8 +10,8 @@
 #
 # Steps:
 # 1. KOLIBRI_HOME defaults to /root/.kolibri (today's data path) and must be a mount.
-# 2. KOLIBRI_ZIP_CONTENT_PORT must be set (Engine writes port_zip; no 8081 default,
-#    which collides when two Kolibris share the host network).
+# 2. KOLIBRI_ZIP_CONTENT_PORT: compose passes ${port_zip:-8081}. 8081 is a single-instance
+#    fallback: two Kolibris on one Engine (host network) collide on it until the Engine writes port_zip.
 # 3. Binary: $KOLIBRI_BIN, else kolibri on PATH, else ./kolibri-<version> in the workdir.
 # 4. On an update (data version OLDER than image version) move job_storage.sqlite3
 #    (+ -wal/-shm) aside: 0.15.5 -> 0.19.5 with the old queue crash-looped
@@ -34,7 +34,8 @@ if [ -z "${KOLIBRI_START_NO_MOUNT_CHECK:-}" ] && command -v mountpoint >/dev/nul
   log "ERROR: KOLIBRI_HOME $KOLIBRI_HOME is not a mounted volume; refusing to start"; exit 78
 fi
 if [ -z "${KOLIBRI_ZIP_CONTENT_PORT:-}" ]; then
-  log "ERROR: KOLIBRI_ZIP_CONTENT_PORT is empty (Engine .env port_zip missing); refusing to fall back to 8081"; exit 78
+  KOLIBRI_ZIP_CONTENT_PORT=8081; export KOLIBRI_ZIP_CONTENT_PORT
+  log "warning: KOLIBRI_ZIP_CONTENT_PORT empty; using 8081 (safe for one Kolibri per Engine only)"
 fi
 if [ "$KOLIBRI_ZIP_CONTENT_PORT" = "${KOLIBRI_HTTP_PORT:-}" ]; then
   log "ERROR: KOLIBRI_ZIP_CONTENT_PORT equals KOLIBRI_HTTP_PORT ($KOLIBRI_HTTP_PORT)"; exit 78

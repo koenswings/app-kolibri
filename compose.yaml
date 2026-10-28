@@ -63,8 +63,9 @@ services:
       # Second port for Kolibri's zip-content server. Both images default it to 8081, which collides
       # when two Kolibris run on one Engine (host network). Engine ports are random in 49152-65534, so
       # port+N may belong to another (stopped) instance: no derivation. The Engine writes port_zip to
-      # .env (proposed Engine change, Axle/Steve); without it kolibri-start.sh refuses to start.
-      - KOLIBRI_ZIP_CONTENT_PORT=${port_zip:-}
+      # .env (proposed Engine change, Axle/Steve). Fallback 8081 (Steve, 2026-10-28) is safe only for
+      # one Kolibri per Engine; a real Kolibri plus its Demo collide on it until port_zip exists.
+      - KOLIBRI_ZIP_CONTENT_PORT=${port_zip:-8081}
       # Data stays where 0.15.5 instances keep it (./data/kolibri -> /root/.kolibri); the official
       # image defaults to /kolibri, so set it explicitly.
       - KOLIBRI_HOME=/root/.kolibri
