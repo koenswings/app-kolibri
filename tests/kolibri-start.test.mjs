@@ -14,8 +14,10 @@ const home = (files) => {
   for (const [f, c] of Object.entries(files)) writeFileSync(join(d, f), c);
   return d;
 };
-const run = (dir, imageVersion, args = ['true']) => spawnSync('sh', [script, ...args], {
-  encoding: 'utf8', env: { ...process.env, KOLIBRI_HOME: dir, KOLIBRI_IMAGE_VERSION: imageVersion },
+const base = { KOLIBRI_START_NO_MOUNT_CHECK: '1', KOLIBRI_ZIP_CONTENT_PORT: '3111', KOLIBRI_HTTP_PORT: '3101', KOLIBRI_BIN: 'true' };
+const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('KOLIBRI_')));
+const run = (dir, imageVersion, extra = {}, args = []) => spawnSync('sh', [script, ...args], {
+  encoding: 'utf8', env: { ...clean, ...base, KOLIBRI_HOME: dir, ...(imageVersion === undefined ? {} : { KOLIBRI_IMAGE_VERSION: imageVersion }), ...extra },
 });
 const ls = (d) => readdirSync(d).sort();
 
@@ -82,16 +84,89 @@ it('an update with no job_storage file is a logged no-op', () => {
 it('reads the image version from the Kolibri binary and execs the command', () => {
   const d = home({ '.data_version': '0.15.5', 'job_storage.sqlite3': 'q' });
   const bin = join(d, 'fake-kolibri');
-  writeFileSync(bin, '#!/bin/sh\nif [ "$1" = --version ]; then echo 0.19.5; else echo "ran $*"; fi\n', { mode: 0o755 });
-  const r = spawnSync('sh', [script, bin, 'start', '--foreground'], { encoding: 'utf8', env: { ...process.env, KOLIBRI_HOME: d } });
+  writeFileSync(bin, '#!/bin/sh\nif [ "$1" = --version ]; then echo "kolibri, version 0.19.5"; else echo "ran $*"; fi\n', { mode: 0o755 });
+  const r = run(d, undefined, { KOLIBRI_BIN: bin }, ['start', '--foreground']);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /moved job_storage\.sqlite3 aside/);
   assert.match(r.stdout, /ran start --foreground/);
 });
 
-it('compose runs Kolibri through the start step, foreground, with the script mounted read-only', () => {
+it('a plain restart with the real --version output moves nothing (agent-app-dev#23 bug)', () => {
+  for (const [dv, out] of [['0.19.5', 'kolibri, version 0.19.5'], ['0.15.5', 'kolibri-0.15.5, version 0.15.5']]) {
+    const d = home({ '.data_version': dv, 'job_storage.sqlite3': 'q' });
+    const r = run(d, out);
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(ls(d), ['.data_version', 'job_storage.sqlite3']);
+    assert.match(r.stdout, /plain restart, no move/);
+  }
+});
+
+it('compares versions numerically, and moves only when data is older than the image', () => {
+  const cases = [['0.15.5', '0.19.5', true], ['0.9.1', '0.19.5', true], ['0.19.5', '0.19.10', true],
+    ['0.19.5', '0.15.5', false], ['0.19.5', '0.19.5', false], ['0.19', '0.19.0', false], ['0.19', '0.19.1', true]];
+  for (const [dv, iv, moves] of cases) {
+    const d = home({ '.data_version': dv, 'job_storage.sqlite3': 'q' });
+    run(d, `kolibri-x, version ${iv}`);
+    assert.equal(!ls(d).includes('job_storage.sqlite3'), moves, `${dv} -> ${iv}`);
+  }
+});
+
+it('uses KOLIBRI_VERSION (official image ENV) when KOLIBRI_IMAGE_VERSION is unset', () => {
+  const d = home({ '.data_version': '0.15.5', 'job_storage.sqlite3': 'q' });
+  const r = run(d, undefined, { KOLIBRI_VERSION: '0.19.5' });
+  assert.match(r.stdout, /update 0\.15\.5 -> 0\.19\.5: moved/);
+});
+
+it('an unreadable version moves nothing and says why', () => {
+  let d = home({ '.data_version': 'garbage', 'job_storage.sqlite3': 'q' });
+  let r = run(d, '0.19.5');
+  assert.equal(r.status, 0); assert.ok(ls(d).includes('job_storage.sqlite3')); assert.match(r.stdout, /could not read data version/);
+  d = home({ '.data_version': '0.15.5', 'job_storage.sqlite3': 'q' });
+  r = run(d, undefined, { KOLIBRI_BIN: 'false' });
+  assert.equal(r.status, 1); assert.ok(ls(d).includes('job_storage.sqlite3')); assert.match(r.stdout, /could not read image Kolibri version/);
+});
+
+it('refuses to start without a zip-content port, or with the HTTP port reused', () => {
+  const d = home({});
+  let r = run(d, '0.19.5', { KOLIBRI_ZIP_CONTENT_PORT: '' });
+  assert.equal(r.status, 78); assert.match(r.stdout, /KOLIBRI_ZIP_CONTENT_PORT is empty/);
+  r = run(d, '0.19.5', { KOLIBRI_ZIP_CONTENT_PORT: '3101' });
+  assert.equal(r.status, 78); assert.match(r.stdout, /equals KOLIBRI_HTTP_PORT/);
+});
+
+it('never writes or reads a .node_id: MORANGO_SYSTEM_ID from compose is passed through', () => {
+  const d = home({ '.node_id': 'random-uuid' });
+  const bin = join(d, 'k');
+  writeFileSync(bin, '#!/bin/sh\necho "sys=$MORANGO_SYSTEM_ID home=$KOLIBRI_HOME"\n', { mode: 0o755 });
+  const r = run(d, '0.19.5', { KOLIBRI_BIN: bin, MORANGO_SYSTEM_ID: 'idea-e1-50000' });
+  assert.match(r.stdout, new RegExp(`sys=idea-e1-50000 home=${d}`));
+});
+
+it('finds the binary without KOLIBRI_BIN: ./kolibri-<version> in the workdir', () => {
+  const d = home({});
+  writeFileSync(join(d, 'kolibri-0.15.5'), '#!/bin/sh\necho "old-bin $*"\n', { mode: 0o755 });
+  const env = { ...clean, ...base, KOLIBRI_HOME: d, KOLIBRI_IMAGE_VERSION: '0.15.5', PATH: '/usr/bin:/bin' };
+  delete env.KOLIBRI_BIN;
+  const r = spawnSync('sh', [script, 'start'], { encoding: 'utf8', cwd: d, env });
+  assert.match(r.stdout, /old-bin start/);
+});
+
+it('fails clearly when KOLIBRI_HOME is not a mount', () => {
+  const d = home({});
+  const env = { ...clean, ...base, KOLIBRI_HOME: d, KOLIBRI_IMAGE_VERSION: '0.19.5' };
+  delete env.KOLIBRI_START_NO_MOUNT_CHECK;
+  const r = spawnSync('sh', [script, 'start'], { encoding: 'utf8', env });
+  assert.equal(r.status, 78); assert.match(r.stdout, /not a mounted volume/);
+});
+
+it('compose: start step as entrypoint, data path unchanged, zip port from port_zip, unless-stopped', () => {
   const compose = readFileSync(join(root, 'compose.yaml'), 'utf8');
-  assert.match(compose, /command: \["sh", "\/idea\/kolibri-start\.sh", "\.\/kolibri-[\d.]+", "start", "--foreground"\]/);
+  assert.match(compose, /entrypoint: \["sh", "\/idea\/kolibri-start\.sh"\]/);
+  assert.match(compose, /command: \["start", "--foreground"\]/);
   assert.match(compose, /- \.\/kolibri-start\.sh:\/idea\/kolibri-start\.sh:ro/);
   assert.match(compose, /- \.\/data\/kolibri:\/root\/\.kolibri/);
+  assert.match(compose, /- KOLIBRI_HOME=\/root\/\.kolibri/);
+  assert.match(compose, /- KOLIBRI_ZIP_CONTENT_PORT=\$\{port_zip:-\}/);
+  assert.match(compose, /restart: unless-stopped/);
+  assert.doesNotMatch(compose, /KOLIBRI_ZIP_CONTENT_PORT=\d/);
 });
