@@ -31,7 +31,9 @@ services:
     # r40: image CMD daemonized then tailed the log; Bus EXITED left only the tailer → Docker Up
     # while :port was dead. Foreground makes Kolibri PID1; healthcheck + on-failure restart.
     # Image already accepts `start --foreground` (Learning Equality CLI).
-    command: ["./kolibri-0.15.5", "start", "--foreground"]
+    # kolibri-start.sh moves a stale job_storage.sqlite3 aside on a version update, then execs
+    # Kolibri unchanged (still PID1 under init, foreground). See the script header.
+    command: ["sh", "/idea/kolibri-start.sh", "./kolibri-0.15.5", "start", "--foreground"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:$${KOLIBRI_HTTP_PORT:-8080}/', timeout=2)\""]
       interval: 10s
@@ -43,6 +45,7 @@ services:
     volumes:
       - ./data/docker:/docker/mnt
       - ./data/kolibri:/root/.kolibri
+      - ./kolibri-start.sh:/idea/kolibri-start.sh:ro
     network_mode: "host"        
     #ports:
     #  - ${port}:8080
