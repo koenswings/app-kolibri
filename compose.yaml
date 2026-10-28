@@ -12,6 +12,18 @@ x-app:
   author: Koen Swings
   version: 5ab9f6428b7143c42feee29cc4b9bf950bab3b3e
   instanceName: kolibri
+  # updateApp (idea#351, agent-app-dev#23). healthTimeout in seconds: placeholder 600 (10 min)
+  # until the #351 first-start timings after migration on idea04 are in.
+  healthCheck:
+    path: /api/public/info/
+    expect: '"application":"kolibri"'
+  healthTimeout: 600
+  updatesFrom: []        # no earlier App major exists; minor updates need no entry
+  migrationNote: >
+    Kolibri updates its database on the first start of the new version. This can take
+    several minutes; learners cannot sign in until it is finished.
+  snapshotExclude:
+    - data/kolibri/content   # channel content: large and re-importable
 services:
   kolibri:
     image: koenswings/kolibri:1.0-0.15.5-dev
