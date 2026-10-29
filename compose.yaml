@@ -26,23 +26,31 @@ x-app:
     - data/kolibri/content   # channel content: large and re-importable
 services:
   kolibri:
-    image: koenswings/kolibri:1.0-0.15.5-dev
+    image: koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079
     init: true
     # r40: image CMD daemonized then tailed the log; Bus EXITED left only the tailer → Docker Up
-    # while :port was dead. Foreground makes Kolibri PID1; healthcheck + on-failure restart.
+    # while :port was dead. Foreground makes Kolibri PID1; healthcheck + restart policy.
     # Image already accepts `start --foreground` (Learning Equality CLI).
-    command: ["./kolibri-0.15.5", "start", "--foreground"]
+    # kolibri-start.sh is the entrypoint for every Kolibri image (0.15.5 and the official 0.19.5):
+    # it finds the binary, moves a stale job_storage.sqlite3 aside only on an update (data version
+    # older than image version), and execs Kolibri as PID1 under init. It replaces the official
+    # image's /entrypoint.sh so MORANGO_SYSTEM_ID below is not overwritten. See docs/kolibri-start.md.
+    entrypoint: ["sh", "/idea/kolibri-start.sh"]
+    command: ["start", "--foreground"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:$${KOLIBRI_HTTP_PORT:-8080}/', timeout=2)\""]
       interval: 10s
       timeout: 3s
       retries: 3
       start_period: 30s
-    restart: on-failure
+    # unless-stopped: Kolibri can exit 0 on a fatal start error (agent-app-dev#23), which
+    # on-failure never restarts. An Engine stop (docker stop) still keeps it stopped.
+    restart: unless-stopped
     pull_policy: never
     volumes:
       - ./data/docker:/docker/mnt
       - ./data/kolibri:/root/.kolibri
+      - ./kolibri-start.sh:/idea/kolibri-start.sh:ro
     network_mode: "host"        
     #ports:
     #  - ${port}:8080
@@ -52,6 +60,15 @@ services:
       # (collides with Console). Fixtures may still pin 18080 via their own .env.
       - KOLIBRI_HTTP_PORT=${port}
       - KOLIBRI_LISTEN_PORT=${port}
+      # Second port for Kolibri's zip-content server. Both images default it to 8081, which collides
+      # when two Kolibris run on one Engine (host network). Engine ports are random in 49152-65534, so
+      # port+N may belong to another (stopped) instance: no derivation. The Engine writes port_zip to
+      # .env (proposed Engine change, Axle/Steve). Fallback 8081 (Steve, 2026-10-28) is safe only for
+      # one Kolibri per Engine; a real Kolibri plus its Demo collide on it until port_zip exists.
+      - KOLIBRI_ZIP_CONTENT_PORT=${port_zip:-8081}
+      # Data stays where 0.15.5 instances keep it (./data/kolibri -> /root/.kolibri); the official
+      # image defaults to /kolibri, so set it explicitly.
+      - KOLIBRI_HOME=/root/.kolibri
       # Unique Kolibri/Morango instance id per instance (idea kit, 2026-10-17). Kolibri 0.15.5 starts
       # every device from the same pre-migrated home template (same Morango DatabaseIDModel), and with
       # network_mode host every instance on one Engine has the same hostname, MAC and db path, so a real
