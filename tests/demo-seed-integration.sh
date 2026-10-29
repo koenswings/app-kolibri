@@ -10,7 +10,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 IMAGE="${IMAGE:-koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079}"; export IMAGE; PORT="${PORT:-18877}"
 NAME="kolibri-demo-it-$$"; DIRS=()
-wipe() { docker run --rm -v "$1:/d" "$IMAGE" sh -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true; rm -rf "$1" "$1".*; }
+wipe() { docker run --rm --network none -v "$1:/d" --entrypoint sh "$IMAGE" -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true; rm -rf "$1" "$1".*; }
 sums() { docker run --rm --network none -v "$1:/d:ro" --entrypoint sh "$IMAGE" -c 'cd /d && find . -type f | sort | xargs -r sha256sum'; }
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; for d in "${DIRS[@]}"; do wipe "$d"; done; rm -f /tmp/it-$$-*.log; }
 trap cleanup EXIT
@@ -81,7 +81,8 @@ scenario() {  # A: empty demo instance, marked by its folder name
   demo/provision-demo.sh "$D" > "$L2" 2>&1 || { cat "$L2"; fail "second run"; }
   grep -q "Demo instance marker: instance folder kolibri-demo" "$L1" || fail "folder marker not used"
   grep -q "not running provisiondevice" "$L2" || fail "rerun ran provisiondevice"
-  report "$L2" | grep -q "'updated': 0, 'created': 0" || fail "rerun not idempotent: $(report "$L2")"
+  # key order differs per Kolibri version (0.15.5: updated, created; 0.19.5: created, updated, deleted)
+  R2=$(report "$L2"); { grep -q "'created': 0" <<<"$R2" && grep -q "'updated': 0" <<<"$R2"; } || fail "rerun not idempotent: $(report "$L2")"
   grep -q "Data errors: \[\]" "$L2" || fail "rerun data errors"
   echo "PASS[$SC] idempotent rerun (provisiondevice skipped once IDEA Demo School exists)"
 
