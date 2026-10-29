@@ -7,10 +7,11 @@ compatibility:
 
 services:
   - name: kolibri
-    build: custom
-    dockerfile: Dockerfile
+    build: retag
+    upstream: learningequality/kolibri
+    upstream_tag: "0.19.5"
     image: koenswings/kolibri
-    current_version: "1.0-0.15.5-dev"
+    current_version: "1.1-0.19.5"
     monitors:
       - kind: http-scrape
         url: "https://learningequality.org/r/kolibri-latest-whl"
