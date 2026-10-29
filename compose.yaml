@@ -62,9 +62,10 @@ services:
       - KOLIBRI_LISTEN_PORT=${port}
       # Second port for Kolibri's zip-content server. Both images default it to 8081, which collides
       # when two Kolibris run on one Engine (host network). Engine ports are random in 49152-65534, so
-      # port+N may belong to another (stopped) instance: no derivation. The Engine writes port_zip to
-      # .env (proposed Engine change, Axle/Steve). Fallback 8081 (Steve, 2026-10-28) is safe only for
-      # one Kolibri per Engine; a real Kolibri plus its Demo collide on it until port_zip exists.
+      # port+N may belong to another (stopped) instance: no derivation. The Engine allocates a separate
+      # port_zip per instance whenever the compose references ${port_zip} (agent-engine-dev#270, 9f00177)
+      # and keeps it in .env, so a real Kolibri and its Demo never share it. 8081 is only the fallback on
+      # older Engines without port_zip, safe for one Kolibri per Engine (Steve, 2026-10-28).
       - KOLIBRI_ZIP_CONTENT_PORT=${port_zip:-8081}
       # Data stays where 0.15.5 instances keep it (./data/kolibri -> /root/.kolibri); the official
       # image defaults to /kolibri, so set it explicitly.

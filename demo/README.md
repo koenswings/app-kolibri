@@ -29,23 +29,23 @@ data dir):
 
 0. **Probe (read-only):** `demo/facility_info.py` opens the instance's `db.sqlite3` with SQLite
    `mode=ro` and reports whether the device is provisioned and the id of the facility named
-   "IDEA Demo School". Kolibri 0.15.5 has no `listfacilities` or `createfacility` command, and
+   "IDEA Demo School". Kolibri 0.15.5 and 0.19.5 have no `listfacilities` or `createfacility` command, and
    `bulkimportusers`/`bulkexportusers` need `--facility <id>` to target a facility other than the default.
 1. **Only on an empty device:** `kolibri manage provisiondevice --facility "IDEA Demo School" --superusername admin --superuserpassword admin911! --preset formal --language_id en --facility_settings facility_settings.json --noinput`
 
-   `facility_settings.json` = `{"learner_can_login_with_no_password": true}` (the 0.15.5 `formal` preset
-   already sets it; the file keeps it explicit). Kolibri applies the preset and these settings **only to the
+   `facility_settings.json` = `{"learner_can_login_with_no_password": true}` (the `formal` preset already sets
+   it in 0.15.5 and 0.19.5; the file keeps it explicit). Kolibri applies the preset and these settings **only to the
    facility it creates**. If IDEA Demo School already exists, step 1 is skipped and its settings stay as they
    are: turn on "Allow learners to sign in with no password" in Facility > Settings (as admin) if needed.
 2. `kolibri manage bulkexportusers --facility <id>` (to learn the UUIDs of demo users that already exist)
 3. `kolibri manage bulkimportusers --facility <id> users.csv`: CSV built from `demo/users.csv` by
-   `demo/build_users_csv.py` in the Kolibri 0.15.5 format
+   `demo/build_users_csv.py` in the bulk-import format (unchanged from 0.15.5 to 0.19.5)
    (`UUID,USERNAME,PASSWORD,FULL_NAME,USER_TYPE,IDENTIFIER,BIRTH_YEAR,GENDER,ENROLLED_IN,ASSIGNED_TO`).
 
 Users always go to IDEA Demo School by id (`--delete` is never used).
 
 **Idempotent:** a re-run finds the facility, skips `provisiondevice`, keeps the existing admin, and
-updates existing users by UUID with `PASSWORD=*` (unchanged). Kolibri 0.15.5
+updates existing users by UUID with `PASSWORD=*` (unchanged). Kolibri (0.15.5 and 0.19.5)
 matches users by UUID only, which is why step 2 exists. `--force-passwords`
 resets `teacher1`, `teacher2` and the learners to `<account>911!` (the admin is never reset).
 Users not in `demo/users.csv` are left alone.
@@ -111,8 +111,23 @@ script fails closed with exit 13.
 demo/provision-demo.sh --demo-instance ./data/kolibri   # --dry-run prints the commands
 ```
 
-Env: `IMAGE` (default `koenswings/kolibri:1.0-0.15.5-dev`), `DOCKER`. Needs
-`python3` and `node` on the host.
+Env: `IMAGE` (default `koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed…`, the image compose.yaml pins;
+`IMAGE=koenswings/kolibri:1.0-0.15.5-dev` still works), `DOCKER`. Needs `python3` and `node` on the host.
+The one-shot containers use `--entrypoint sh` (skipping the official image's `/entrypoint.sh`, as
+compose.yaml does), set `KOLIBRI_HOME=/root/.kolibri`, and find the binary like `kolibri-start.sh`:
+`KOLIBRI_BIN`, then `kolibri` on PATH (0.19.5), then `./kolibri-*` (0.15.5).
+
+### 0.15.5 → 0.19.5 check (learningequality/kolibri tag v0.19.5)
+
+| Assumption | 0.19.5 | Source |
+|---|---|---|
+| No `listfacilities`/`createfacility` | Still none | `kolibri/core/auth/management/commands/`, `kolibri/core/device/management/commands/` |
+| `bulkimportusers --facility <id>`, CSV `UUID,…,ASSIGNED_TO`, matches by UUID | Unchanged | `bulkimportusers.py` (`fieldnames`, `--facility`) |
+| `bulkexportusers --facility -O -w`, headers `Label (KEY)` | Unchanged | `bulkexportusers.py` |
+| `provisiondevice --preset --language_id --facility_settings --noinput` | Unchanged | `provisiondevice.py` |
+| `formal` preset sets `learner_can_login_with_no_password: true` | Unchanged | `kolibri/core/auth/constants/facility_configuration_presets.json` |
+| CSRF cookie `kolibri_csrftoken` | Unchanged | `kolibri/deployment/default/settings/base.py` (`CSRF_COOKIE_NAME`) |
+| `importchannel`/`importcontent disk <id> <dir>` | Unchanged | `kolibri/core/content/management/commands/` |
 
 ## Lessons and quiz (demo/seed_classwork.py, idea#294)
 
@@ -132,7 +147,7 @@ Exercises come from the channel builder's `*.exercise.json` (IDEA-DEMO disk: Mat
 ```sh
 node --test tests/                  # includes install-demo.test.mjs (mocked Engine queue)
 python3 -m unittest discover -s tests -p 'test_*.py'   # CSV + script logic
-tests/demo-seed-integration.sh                          # throwaway Kolibri 0.15.5 container
+tests/demo-seed-integration.sh                          # throwaway Kolibri container ($IMAGE, default 0.19.5)
 tests/classwork_check.py --url http://127.0.0.1:PORT    # TEST instance only: learner1 does an exercise + the quiz, teacher1 sees progress
 ```
 
