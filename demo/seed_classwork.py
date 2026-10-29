@@ -43,7 +43,7 @@ class Api(object):
 
     def _csrf(self):
         for c in self.jar:
-            if c.name.endswith("csrftoken"):  # 0.15.5: kolibri_csrftoken
+            if c.name.endswith("csrftoken"):  # 0.15.5 and 0.19.5: kolibri_csrftoken
                 return c.value
         return ""
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Integration test: runs demo/provision-demo.sh against throwaway Kolibri 0.15.5
+# Integration test: runs demo/provision-demo.sh against throwaway Kolibri (default the pinned 0.19.5 image; IMAGE=koenswings/kolibri:1.0-0.15.5-dev also works)
 # data dirs (no Pi app data), in two scenarios:
 #   A. empty demo instance (<tmp>/kolibri-demo/data/kolibri): seed, rerun, logins
 #   B. device provisioned with "Other School" (otheradmin, learner other1): REFUSED
 #      (exit 6) and every file in the data dir byte-for-byte unchanged (sha256)
 #   C. empty dir without any demo marker: REFUSED (exit 5), nothing created
-# Needs docker and the koenswings/kolibri:1.0-0.15.5-dev image. PORT default 18877.
+# Needs docker and $IMAGE. PORT default 18877.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-IMAGE="${IMAGE:-koenswings/kolibri:1.0-0.15.5-dev}"; PORT="${PORT:-18877}"
+IMAGE="${IMAGE:-koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079}"; export IMAGE; PORT="${PORT:-18877}"
 NAME="kolibri-demo-it-$$"; DIRS=()
 wipe() { docker run --rm -v "$1:/d" "$IMAGE" sh -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true; rm -rf "$1" "$1".*; }
 sums() { docker run --rm --network none -v "$1:/d:ro" --entrypoint sh "$IMAGE" -c 'cd /d && find . -type f | sort | xargs -r sha256sum'; }
@@ -16,7 +16,12 @@ cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; for d in "${DIRS[@]}";
 trap cleanup EXIT
 fail() { echo "FAIL[$SC]: $*"; exit 1; }
 report() { grep -o "Users report: {[^}]*}" "$1"; }
-one() { docker run --rm --network none -e KOLIBRI_RUN_MODE=docker -v "$D:/root/.kolibri" -v "$PWD/tests:/t:ro" "$IMAGE" ./kolibri-0.15.5 manage "$@"; }
+# Find the Kolibri binary like kolibri-start.sh: KOLIBRI_BIN, then `kolibri` on PATH, then ./kolibri-*
+# (0.15.5 image: ./kolibri-0.15.5; official 0.19.5: kolibri). --entrypoint sh bypasses the official
+# image's /entrypoint.sh, as compose.yaml does.
+# shellcheck disable=SC2016  # expanded inside the container
+KRUN='B=${KOLIBRI_BIN:-}; if [ -z "$B" ]; then if command -v kolibri >/dev/null 2>&1; then B=kolibri; else for f in ./kolibri-*; do [ -x "$f" ] && B=$f; done; fi; fi; [ -n "$B" ] || { echo "no Kolibri binary (set KOLIBRI_BIN)" >&2; exit 78; }; "$B" "$@"'
+one() { docker run --rm --network none -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HOME=/root/.kolibri -v "$D:/root/.kolibri" -v "$PWD/tests:/t:ro" --entrypoint sh "$IMAGE" -c "$KRUN" kolibri manage "$@"; }
 snap() { docker run --rm --network none -v "$D:/root/.kolibri" -v "$PWD/tests:/t:ro" --entrypoint python3 "$IMAGE" /t/snapshot_other.py /root/.kolibri; }
 
 login() {  # login FACILITY_ID USER [PASSWORD] -> HTTP status; no PASSWORD = username-only
@@ -95,8 +100,9 @@ print("ok")
 PY
   echo "PASS[$SC] demo users only in IDEA Demo School"
 
-  docker run -d --name "$NAME" --network host -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HTTP_PORT="$PORT" \
-    -v "$D:/root/.kolibri" "$IMAGE" ./kolibri-0.15.5 start --foreground >/dev/null
+  docker run -d --name "$NAME" --network host -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HOME=/root/.kolibri \
+    -e KOLIBRI_HTTP_PORT="$PORT" -e KOLIBRI_ZIP_CONTENT_PORT="$((PORT+1))" \
+    -v "$D:/root/.kolibri" --entrypoint sh "$IMAGE" -c "$KRUN" kolibri start --foreground >/dev/null
   set +e; demo/provision-demo.sh "$D" >/dev/null 2>&1; rc=$?; set -e
   [ "$rc" = 3 ] || fail "live guard rc=$rc"; echo "PASS[$SC] refuses live server"
   for _ in $(seq 90); do curl -sf "localhost:$PORT/" >/dev/null && break; sleep 2; done

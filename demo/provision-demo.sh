@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Optional IDEA demo seed for the Kolibri App (not run by default).
 #
-# Uses only supported Kolibri 0.15.5 management commands, run in a ONE-SHOT
+# Uses only supported Kolibri management commands (0.15.5 and 0.19.5), run in a ONE-SHOT
 # container against the instance's data dir while the Kolibri server is STOPPED:
 #   0. facility_info.py (read-only SQLite open, mode=ro): provisioned? IDEA Demo School id?
 #   1. kolibri manage provisiondevice --noinput   (only on an EMPTY device: creates
@@ -21,7 +21,7 @@
 #
 # Usage: demo/provision-demo.sh [--dry-run] [--force-passwords] [--demo-instance] DATA_DIR
 #   DATA_DIR  host path mounted at /root/.kolibri (the instance's data/kolibri)
-# Env: IMAGE (default koenswings/kolibri:1.0-0.15.5-dev), DOCKER (default docker)
+# Env: IMAGE (default the pinned koenswings/kolibri:1.1-0.19.5 digest), DOCKER (default docker)
 #
 # Idempotent: re-running reuses the facility, keeps the existing superuser, and
 # (via bulkexportusers + build_users_csv.py) updates existing users by UUID with
@@ -30,9 +30,13 @@
 # It never deletes users (no --delete).
 set -euo pipefail
 
-IMAGE="${IMAGE:-koenswings/kolibri:1.0-0.15.5-dev}"
+IMAGE="${IMAGE:-koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079}"
 DOCKER="${DOCKER:-docker}"
-K=./kolibri-0.15.5
+# Find the Kolibri binary like kolibri-start.sh: KOLIBRI_BIN, then `kolibri` on PATH, then ./kolibri-*
+# (0.15.5 image: ./kolibri-0.15.5; official 0.19.5: kolibri). --entrypoint sh bypasses the official
+# image's /entrypoint.sh, as compose.yaml does.
+# shellcheck disable=SC2016  # expanded inside the container
+KRUN='B=${KOLIBRI_BIN:-}; if [ -z "$B" ]; then if command -v kolibri >/dev/null 2>&1; then B=kolibri; else for f in ./kolibri-*; do [ -x "$f" ] && B=$f; done; fi; fi; [ -n "$B" ] || { echo "no Kolibri binary (set KOLIBRI_BIN)" >&2; exit 78; }; "$B" "$@"'
 FACILITY="IDEA Demo School"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DRY=0; FORCE=0; DEMOFLAG=0
@@ -83,9 +87,9 @@ WORK="$(mktemp -d)"; chmod 777 "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
 oneshot() {
-  run $DOCKER run --rm --network none -e KOLIBRI_RUN_MODE=docker \
+  run $DOCKER run --rm --network none -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HOME=/root/.kolibri \
     -v "$DATA:/root/.kolibri" -v "$WORK:/seed" \
-    "$IMAGE" "$K" manage "$@"
+    --entrypoint sh "$IMAGE" -c "$KRUN" kolibri manage "$@"
 }
 
 # Read-only probe (SQLite mode=ro; the dir is mounted rw only so SQLite can use
@@ -106,7 +110,7 @@ probe() {
 }
 
 # Learners sign in with their username only (learner_can_login_with_no_password).
-# The formal preset already turns it on in 0.15.5; the explicit --facility_settings
+# The formal preset already turns it on (0.15.5 and 0.19.5); the explicit --facility_settings
 # keeps it on. Kolibri applies both only to a facility it CREATES, and only to that
 # facility; an existing facility keeps its settings (see demo/README.md).
 FS="$WORK/facility_settings.json"

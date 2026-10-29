@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Build the bulkimportusers CSV for the IDEA demo seed (Kolibri 0.15.5).
+"""Build the bulkimportusers CSV for the IDEA demo seed (Kolibri 0.15.5 and 0.19.5: same
+UUID..ASSIGNED_TO columns and "Label (KEY)" export headers).
 
 bulkimportusers matches existing users by UUID only, so a plain re-import would
 try to create duplicates. This merges the desired users (demo/users.csv) with a

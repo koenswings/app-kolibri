@@ -118,6 +118,11 @@ send() {  # send "<command>" -> 0 Done, 1 Failed, 2 timeout, 3 unreachable
   return $rc
 }
 
+# Find the Kolibri binary like kolibri-start.sh: KOLIBRI_BIN, then `kolibri` on PATH, then ./kolibri-*
+# (0.15.5 image: ./kolibri-0.15.5; official 0.19.5: kolibri). --entrypoint sh bypasses the official
+# image's /entrypoint.sh, as compose.yaml does.
+# shellcheck disable=SC2016  # expanded inside the container
+KRUN='B=${KOLIBRI_BIN:-}; if [ -z "$B" ]; then if command -v kolibri >/dev/null 2>&1; then B=kolibri; else for f in ./kolibri-*; do [ -x "$f" ] && B=$f; done; fi; fi; [ -n "$B" ] || { echo "no Kolibri binary (set KOLIBRI_BIN)" >&2; exit 78; }; "$B" "$@"'
 import_channels() {  # $1 data dir
   local src="$CHANNELS" tmp=""
   if [ -f "$src" ]; then tmp="$(mktemp -d)"; tar -xf "$src" -C "$tmp" || return 1; src="$tmp"; fi
@@ -128,9 +133,9 @@ import_channels() {  # $1 data dir
     for verb in importchannel importcontent; do
       echo "+ kolibri manage $verb disk $cid /export" >&2
       [ "$DRY" = 1 ] && continue
-      ${DOCKER:-docker} run --rm --network none -e KOLIBRI_RUN_MODE=docker \
+      ${DOCKER:-docker} run --rm --network none -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HOME=/root/.kolibri \
         -v "$1:/root/.kolibri" -v "$src/KOLIBRI_DATA:/export:ro" \
-        "${IMAGE:-koenswings/kolibri:1.0-0.15.5-dev}" ./kolibri-0.15.5 manage "$verb" disk "$cid" /export || rc=1
+        --entrypoint sh "${IMAGE:-koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079}" -c "$KRUN" kolibri manage "$verb" disk "$cid" /export || rc=1
     done
   done
   [ -n "$tmp" ] && rm -rf "$tmp"

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Read-only probe of a STOPPED Kolibri 0.15.5 data dir (IDEA demo seed).
+"""Read-only probe of a STOPPED Kolibri 0.15.5 or 0.19.5 data dir (IDEA demo seed).
 
 Prints three lines:
   provisioned=0|1
   facility_id=<id of the facility named NAME, case-insensitive, or empty>
   facilities=<JSON list of ALL facility names on the device>
 It opens db.sqlite3 with SQLite's read-only URI (mode=ro) and never writes.
-Kolibri 0.15.5 has no `listfacilities`/`createfacility` command, and
+Kolibri 0.15.5 and 0.19.5 have no `listfacilities`/`createfacility` command, and
 bulkimportusers/bulkexportusers take --facility <id>, so the seed needs the id.
 Usage: facility_info.py KOLIBRI_HOME NAME
 """
