@@ -8,7 +8,7 @@
 # Needs docker and $IMAGE. PORT default 18877.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-IMAGE="${IMAGE:-koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079}"; export IMAGE; PORT="${PORT:-18877}"
+IMAGE="${IMAGE:-koenswings/kolibri:1.1-0.19.5}"; export IMAGE; PORT="${PORT:-18877}"
 NAME="kolibri-demo-it-$$"; DIRS=()
 wipe() { docker run --rm --network none -v "$1:/d" --entrypoint sh "$IMAGE" -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true; rm -rf "$1" "$1".*; }
 sums() { docker run --rm --network none -v "$1:/d:ro" --entrypoint sh "$IMAGE" -c 'cd /d && find . -type f | sort | xargs -r sha256sum'; }

@@ -30,7 +30,7 @@
 # It never deletes users (no --delete).
 set -euo pipefail
 
-IMAGE="${IMAGE:-koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079}"
+IMAGE="${IMAGE:-koenswings/kolibri:1.1-0.19.5}"
 DOCKER="${DOCKER:-docker}"
 # Find the Kolibri binary like kolibri-start.sh: KOLIBRI_BIN, then `kolibri` on PATH, then ./kolibri-*
 # (0.15.5 image: ./kolibri-0.15.5; official 0.19.5: kolibri). --entrypoint sh bypasses the official
