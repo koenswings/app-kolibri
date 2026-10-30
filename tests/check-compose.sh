@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PORT=${1:-18555}; ZIP=${2:-18556}
-out=$(port=$PORT port_zip=$ZIP docker compose -f compose.yaml config 2>&1) || { echo "FAIL: compose config: $out"; exit 1; }
+out=$(hostname=kit01 port=$PORT port_zip=$ZIP docker compose -f compose.yaml config 2>&1) || { echo "FAIL: compose config: $out"; exit 1; }
 fail=0
 chk(){ if grep -qE -- "$1" <<<"$out"; then echo "ok   $2"; else echo "FAIL $2"; fail=1; fi; }
 chk "KOLIBRI_HTTP_PORT: \"?$PORT\"?" "KOLIBRI_HTTP_PORT=\${port}"
@@ -14,6 +14,8 @@ chk "restart: unless-stopped" "restart unless-stopped"
 chk "KOLIBRI_ZIP_CONTENT_PORT: \"?$ZIP\"?" "KOLIBRI_ZIP_CONTENT_PORT=\${port_zip}"
 chk "healthcheck:" "healthcheck present"
 chk "network_mode: host" "host network"
+chk "/idea/kolibri-start.sh" "entrypoint kolibri-start.sh (skips the official /entrypoint.sh)"
+chk "MORANGO_SYSTEM_ID: idea-kit01-$PORT" "MORANGO_SYSTEM_ID=idea-\${hostname}-\${port}"
 chk "pull_policy: never" "pull_policy never"
 # Digest rule (idea#322 / agent-engine-dev#296): a pin must be tag@digest and the digest
 # must be the image's multi-platform INDEX digest, never a single-platform digest

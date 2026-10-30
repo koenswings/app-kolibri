@@ -10,7 +10,7 @@ x-app:
   category: education
   icon: icon.png
   author: Koen Swings
-  version: 5ab9f6428b7143c42feee29cc4b9bf950bab3b3e
+  version: "1.1-0.19.5"
   instanceName: kolibri
   # updateApp (idea#351, agent-app-dev#23). healthTimeout: integer seconds.
   # Measured on idea04 (Pi 4, 2026-10-28, idea#351): 0.15.5 -> 0.19.5 first start 373-381 s to /api/public/info/ 200 (34.5k content nodes, db 125 MB). About 2.4x margin, since a field Kolibri with all 14 channels has a larger database.
@@ -26,10 +26,12 @@ x-app:
     - data/kolibri/content   # channel content: large and re-importable
 services:
   kolibri:
-    # Tag-only on purpose: a docker-loaded tar has no platform digest, so a digest pin with
-    # pull_policy: never fails with "No such image" on a PLATFORM digest pin. Pinned to the multi-platform INDEX digest (idea#322); needs agent-engine-dev#296.
-    # once the Engine pulls by index digest and verifies it after load.
+    # Pinned to the multi-platform INDEX digest (idea#322), never a per-platform manifest digest:
+    # a docker-loaded tar only resolves repo:tag@<index digest>. The Engine (agent-engine-dev#296,
+    # 46da985) pulls by this ref, saves by repo:tag and verifies the digest after load.
     image: koenswings/kolibri:1.1-0.19.5@sha256:a5ae1caf3e31b5bb9f2df9c94d45c4cf6fdb8ce3cfe8730364bd6648cdbadc31
+    labels:
+      x-app-version: "1.1-0.19.5"
     init: true
     # r40: image CMD daemonized then tailed the log; Bus EXITED left only the tailer → Docker Up
     # while :port was dead. Foreground makes Kolibri PID1; healthcheck + restart policy.
