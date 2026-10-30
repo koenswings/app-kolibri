@@ -111,7 +111,7 @@ script fails closed with exit 13.
 demo/provision-demo.sh --demo-instance ./data/kolibri   # --dry-run prints the commands
 ```
 
-Env: `IMAGE` (default `koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed…`, the image compose.yaml pins;
+Env: `IMAGE` (default `koenswings/kolibri:1.1-0.19.5`, the image compose.yaml uses;
 `IMAGE=koenswings/kolibri:1.0-0.15.5-dev` still works), `DOCKER`. Needs `python3` and `node` on the host.
 The one-shot containers use `--entrypoint sh` (skipping the official image's `/entrypoint.sh`, as
 compose.yaml does), set `KOLIBRI_HOME=/root/.kolibri`, and find the binary like `kolibri-start.sh`:

@@ -26,7 +26,10 @@ x-app:
     - data/kolibri/content   # channel content: large and re-importable
 services:
   kolibri:
-    image: koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079
+    # Tag-only on purpose: a docker-loaded tar has no platform digest, so a digest pin with
+    # pull_policy: never fails with "No such image". The digest pin comes back via idea#322
+    # once the Engine pulls by index digest and verifies it after load.
+    image: koenswings/kolibri:1.1-0.19.5
     init: true
     # r40: image CMD daemonized then tailed the log; Bus EXITED left only the tailer → Docker Up
     # while :port was dead. Foreground makes Kolibri PID1; healthcheck + restart policy.

@@ -135,7 +135,7 @@ import_channels() {  # $1 data dir
       [ "$DRY" = 1 ] && continue
       ${DOCKER:-docker} run --rm --network none -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HOME=/root/.kolibri \
         -v "$1:/root/.kolibri" -v "$src/KOLIBRI_DATA:/export:ro" \
-        --entrypoint sh "${IMAGE:-koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079}" -c "$KRUN" kolibri manage "$verb" disk "$cid" /export || rc=1
+        --entrypoint sh "${IMAGE:-koenswings/kolibri:1.1-0.19.5}" -c "$KRUN" kolibri manage "$verb" disk "$cid" /export || rc=1
     done
   done
   [ -n "$tmp" ] && rm -rf "$tmp"

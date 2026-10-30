@@ -14,5 +14,8 @@ chk "restart: unless-stopped" "restart unless-stopped"
 chk "KOLIBRI_ZIP_CONTENT_PORT: \"?$ZIP\"?" "KOLIBRI_ZIP_CONTENT_PORT=\${port_zip}"
 chk "healthcheck:" "healthcheck present"
 chk "network_mode: host" "host network"
+chk "pull_policy: never" "pull_policy never"
+chk "image: koenswings/kolibri:[^@[:space:]]+$" "image tag-only (no @sha256 until idea#322 Engine digest fix)"
+if grep -qE "image: .*@sha256" <<<"$out"; then echo "FAIL image pins a digest (breaks docker-load start)"; fail=1; fi
 if grep -q "8080\"\?$" <<<"$(grep -E 'KOLIBRI_(HTTP|LISTEN)_PORT' <<<"$out")"; then echo "FAIL port defaults to 8080"; fail=1; fi
 exit $fail
