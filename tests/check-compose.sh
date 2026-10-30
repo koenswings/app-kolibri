@@ -17,7 +17,13 @@ chk "network_mode: host" "host network"
 chk "/idea/kolibri-start.sh" "entrypoint kolibri-start.sh (skips the official /entrypoint.sh)"
 chk "MORANGO_SYSTEM_ID: idea-kit01-$PORT" "MORANGO_SYSTEM_ID=idea-\${hostname}-\${port}"
 chk "pull_policy: never" "pull_policy never"
-chk "image: koenswings/kolibri:[^@[:space:]]+$" "image tag-only (no @sha256 until idea#322 Engine digest fix)"
-if grep -qE "image: .*@sha256" <<<"$out"; then echo "FAIL image pins a digest (breaks docker-load start)"; fail=1; fi
+# Digest rule (idea#322 / agent-engine-dev#296): a pin must be tag@digest and the digest
+# must be the image's multi-platform INDEX digest, never a single-platform digest
+# (platform pins fail after docker load with pull_policy: never).
+KOLIBRI_INDEX_DIGEST=sha256:a5ae1caf3e31b5bb9f2df9c94d45c4cf6fdb8ce3cfe8730364bd6648cdbadc31
+img=$(grep -oE "image: \S+" <<<"$out" | head -1 | cut -d' ' -f2)
+if [[ "$img" == *@sha256:* ]]; then
+  if [[ "$img" =~ ^koenswings/kolibri:[^@]+@(sha256:[0-9a-f]{64})$ ]] && [[ "${BASH_REMATCH[1]}" == "$KOLIBRI_INDEX_DIGEST" ]]; then echo "ok   image tag@index-digest"; else echo "FAIL image digest is not tag@INDEX digest: $img"; fail=1; fi
+else chk "image: koenswings/kolibri:[^@[:space:]]+$" "image tag-only"; fi
 if grep -q "8080\"\?$" <<<"$(grep -E 'KOLIBRI_(HTTP|LISTEN)_PORT' <<<"$out")"; then echo "FAIL port defaults to 8080"; fail=1; fi
 exit $fail
