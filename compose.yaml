@@ -10,7 +10,7 @@ x-app:
   category: education
   icon: icon.png
   author: Koen Swings
-  version: 5ab9f6428b7143c42feee29cc4b9bf950bab3b3e
+  version: "1.1-0.19.5"
   instanceName: kolibri
   # updateApp (idea#351, agent-app-dev#23). healthTimeout: integer seconds.
   # Measured on idea04 (Pi 4, 2026-10-28, idea#351): 0.15.5 -> 0.19.5 first start 373-381 s to /api/public/info/ 200 (34.5k content nodes, db 125 MB). About 2.4x margin, since a field Kolibri with all 14 channels has a larger database.
@@ -30,6 +30,8 @@ services:
     # pull_policy: never fails with "No such image". The digest pin comes back via idea#322
     # once the Engine pulls by index digest and verifies it after load.
     image: koenswings/kolibri:1.1-0.19.5
+    labels:
+      x-app-version: "1.1-0.19.5"
     init: true
     # r40: image CMD daemonized then tailed the log; Bus EXITED left only the tailer → Docker Up
     # while :port was dead. Foreground makes Kolibri PID1; healthcheck + restart policy.
