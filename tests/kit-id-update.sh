@@ -14,7 +14,7 @@
 set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OLD_IMAGE="${OLD_IMAGE:-koenswings/kolibri:1.0-0.15.5-dev}"
-NEW_IMAGE="${NEW_IMAGE:-koenswings/kolibri:1.1-0.19.5@sha256:2b1cb1ed1dda1d626ac7dc0b4c23c04d575eeac6fc208d848a10282ba2f64079}"
+NEW_IMAGE="${NEW_IMAGE:-koenswings/kolibri:1.1-0.19.5}"
 PORT="${PORT:-18901}"; PORT_ZIP="${PORT_ZIP:-18902}"; KIT_HOST="${KIT_HOST:-$(hostname)}"
 HEALTH_WAIT="${HEALTH_WAIT:-900}"
 WORK="${WORK:-$PWD/kitid-$$}"; P="kitid$$"
