@@ -27,9 +27,9 @@ x-app:
 services:
   kolibri:
     # Tag-only on purpose: a docker-loaded tar has no platform digest, so a digest pin with
-    # pull_policy: never fails with "No such image". The digest pin comes back via idea#322
+    # pull_policy: never fails with "No such image" on a PLATFORM digest pin. Pinned to the multi-platform INDEX digest (idea#322); needs agent-engine-dev#296.
     # once the Engine pulls by index digest and verifies it after load.
-    image: koenswings/kolibri:1.1-0.19.5
+    image: koenswings/kolibri:1.1-0.19.5@sha256:a5ae1caf3e31b5bb9f2df9c94d45c4cf6fdb8ce3cfe8730364bd6648cdbadc31
     init: true
     # r40: image CMD daemonized then tailed the log; Bus EXITED left only the tailer → Docker Up
     # while :port was dead. Foreground makes Kolibri PID1; healthcheck + restart policy.
