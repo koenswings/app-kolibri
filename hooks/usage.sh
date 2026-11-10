@@ -136,7 +136,7 @@ def minutes_between(start, end):
 
 
 def empty_signins():
-    z = {"users": 0, "sessions": 0, "minutes": 0}
+    z = {"total": 0, "beyondSeed": 0, "sessions": 0, "minutes": 0}
     return {"learner": dict(z), "coach": dict(z), "admin": dict(z)}
 
 
@@ -428,16 +428,21 @@ def summarize(conn, kolibri_home, day):
                 if not on_day(row["start_timestamp"], day):
                     continue
                 uid = str(row["user_id"]) if row["user_id"] is not None else ""
-                if uid in seed_user_ids:
-                    continue
                 role = role_of.get(uid, "learner")
                 bucket = signins[role]
                 bucket["sessions"] += 1
                 bucket["minutes"] += minutes_between(row["start_timestamp"], row["ended"])
                 if uid:
                     seen_users[role].add(uid)
+    seeds_for = {"learner": SEED_LEARNER, "coach": SEED_TEACHER, "admin": SEED_ADMIN}
     for role in signins:
-        signins[role]["users"] = len(seen_users[role])
+        uids = seen_users[role]
+        signins[role]["total"] = len(uids)
+        seeds = seeds_for[role]
+        signins[role]["beyondSeed"] = sum(
+            1 for uid in uids
+            if uid_to_name.get(uid) not in seeds and uid not in seed_user_ids
+        )
 
     titles, channels = lookup_titles(kolibri_home)
     assigned = lesson_content_ids(conn, lesson_t, True)

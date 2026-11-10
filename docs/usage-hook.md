@@ -34,7 +34,7 @@ The hook prints `schema`, `day` (day mode), `app: "kolibri"`, the §7.6 payload 
 
 `demo` is `true` when the facility name is `IDEA Demo School`. Seed classwork for the demo learner is excluded by that user’s internal IDs (resolved only inside the demo facility), never by username. Extra IDs may be listed in `IDEA_USAGE_DEMO_SEED_IDS` or `/hooks/demo-seed-ids.json`. The shared-account flag is `sharedLearnerAccount`.
 
-`setup` emits `admin`, `teacher` and `learner` as `{total, beyondSeed}`. Seeds come from `docs/accounts.md` and `demo/users.csv` (`admin`; coaches `teacher1`/`teacher2`; learners `learner1`–`learner3`) and are matched by username inside the hook only. Class and enrollment totals stay flat numbers (`classes`, `classesDelta`, `learnersEnrolled`, `learnersRegisteredDelta`, `teachersDelta`).
+`setup` emits `admin`, `teacher` and `learner` as `{total, beyondSeed}`. `signins` uses the same `{total, beyondSeed}` on `learner`, `coach` and `admin`, plus `sessions` and `minutes`. Seeds come from `docs/accounts.md` and `demo/users.csv` (`admin`; coaches `teacher1`/`teacher2`; learners `learner1`–`learner3`) and are matched by username inside the hook only. Class and enrollment totals stay flat numbers (`classes`, `classesDelta`, `learnersEnrolled`, `learnersRegisteredDelta`, `teachersDelta`).
 
 The database is opened read-only (`mode=ro`, `query_only`, `busy_timeout=500`) so both Kolibri 0.15.5 and 0.19.5 stay unlocked.
 
