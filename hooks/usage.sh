@@ -159,8 +159,8 @@ def empty_day(day, demo=False):
         "setup": {
             "classes": 0,
             "classesDelta": 0,
-            "learnersEnrolled": 0,
-            "learnersRegisteredDelta": 0,
+            "learnerEnrolled": 0,
+            "learnerDelta": 0,
             "teachersDelta": 0,
             "admin": empty_role(),
             "teacher": empty_role(),
@@ -602,8 +602,8 @@ def summarize(conn, kolibri_home, day):
         "setup": {
             "classes": len(classrooms),
             "classesDelta": 0,
-            "learnersEnrolled": len(enrolled),
-            "learnersRegisteredDelta": learners_delta,
+            "learnerEnrolled": len(enrolled),
+            "learnerDelta": learners_delta,
             "teachersDelta": 0,
             "admin": role_count(admins, uid_to_name, SEED_ADMIN),
             "teacher": role_count(teachers, uid_to_name, SEED_TEACHER),
