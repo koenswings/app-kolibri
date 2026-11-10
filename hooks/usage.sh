@@ -28,6 +28,11 @@ FORBIDDEN = (
 DEMO_FACILITY = "IDEA Demo School"
 # Resolved to IDs only when the seed facility exists; never used on a real school.
 SEED_LEARNER_USERNAMES = ("learner3",)
+# Census seeds from docs/accounts.md and demo/users.csv. Matched by username
+# inside the hook only; never written to stdout.
+SEED_ADMIN = frozenset(("admin",))
+SEED_TEACHER = frozenset(("teacher1", "teacher2"))
+SEED_LEARNER = frozenset(("learner1", "learner2", "learner3"))
 ROLE_COACH = frozenset(("coach", "classroom assignable coach", "classroom_assignable_coach"))
 
 KNOWN_USER = ("kolibriauth_facilityuser",)
@@ -135,6 +140,16 @@ def empty_signins():
     return {"learner": dict(z), "coach": dict(z), "admin": dict(z)}
 
 
+def role_count(uids, uid_to_name, seeds):
+    total = len(uids)
+    seeded = sum(1 for uid in uids if uid_to_name.get(uid) in seeds)
+    return {"total": total, "beyondSeed": total - seeded}
+
+
+def empty_role():
+    return {"total": 0, "beyondSeed": 0}
+
+
 def empty_day(day, demo=False):
     return {
         "schema": "idea-usage-day/1",
@@ -144,12 +159,12 @@ def empty_day(day, demo=False):
         "setup": {
             "classes": 0,
             "classesDelta": 0,
-            "learnersRegistered": 0,
-            "learnersRegisteredDelta": 0,
             "learnersEnrolled": 0,
-            "teachers": 0,
+            "learnersRegisteredDelta": 0,
             "teachersDelta": 0,
-            "admins": 0,
+            "admin": empty_role(),
+            "teacher": empty_role(),
+            "learner": empty_role(),
         },
         "signins": empty_signins(),
         "content": [],
@@ -357,10 +372,12 @@ def summarize(conn, kolibri_home, day):
         return True
 
     learners, teachers, admins = set(), set(), set()
+    uid_to_name = {}
     for row in users:
+        uid = str(row["id"])
+        uid_to_name[uid] = str(row["username"] or "")
         if not alive(row):
             continue
-        uid = str(row["id"])
         r = role_of.get(uid, "learner")
         if r == "admin":
             admins.add(uid)
@@ -580,12 +597,12 @@ def summarize(conn, kolibri_home, day):
         "setup": {
             "classes": len(classrooms),
             "classesDelta": 0,
-            "learnersRegistered": len(learners),
-            "learnersRegisteredDelta": learners_delta,
             "learnersEnrolled": len(enrolled),
-            "teachers": len(teachers),
+            "learnersRegisteredDelta": learners_delta,
             "teachersDelta": 0,
-            "admins": len(admins),
+            "admin": role_count(admins, uid_to_name, SEED_ADMIN),
+            "teacher": role_count(teachers, uid_to_name, SEED_TEACHER),
+            "learner": role_count(learners, uid_to_name, SEED_LEARNER),
         },
         "signins": signins,
         "content": content,
