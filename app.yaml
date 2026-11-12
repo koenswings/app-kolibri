@@ -3,8 +3,8 @@ idea_app_version: "1.0"
 
 compatibility:
   engine_min: "0.9.0"       # minimum Engine version this App Disk requires
-  # 1.2-0.19.5 (setup.coach, idea#462): on-Pi check on idea03 at 50be7cd, throwaway compose project kidk21 (setup.coach 5/4, collector 4).
-  # The run used KOLIBRI_ZEROCONF_ENABLED=False in a test-only override: idea03 has 18 stale docker bridges and zeroconf hit ENOBUFS (igmp_max_memberships 20).
+  # 1.2-0.19.5 (setup.coach, idea#462): on-Pi check on idea03 at 47fea44, compose as shipped (zeroconf on, no override), throwaway project kidk21: setup.coach 5/4, collector 4, 0 restarts.
+  # Needs net.ipv4.igmp_max_memberships above the host's Docker network count (docs/releases.md Known issue); idea03 had 1024.
   engine_tested:
     commit: "537b16d"
     version: "1.0"
