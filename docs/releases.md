@@ -27,3 +27,12 @@ Changes since the last tag, `1.1-0.19.5` (a344b06). Kolibri stays on 0.19.5 and 
 
 **Migration:** none. Kolibri stays on 0.19.5, so there is no database upgrade and data under
 `./data/kolibri` stays in place. `MORANGO_SYSTEM_ID` (`idea-${hostname}-${port}`) is unchanged.
+
+**Known issue: zeroconf and the host multicast limit.** Kolibri's zeroconf LAN discovery joins a
+multicast group on every host interface (`network_mode: host`). The host's
+`net.ipv4.igmp_max_memberships` must therefore be above the number of Docker networks on the host.
+If it is not, Kolibri exits at start with `OSError: [Errno 105] No buffer space available` and the
+container crash-loops (`restart: unless-stopped`). Seen on idea03 with 18 stale Docker bridges and the
+kernel default of 20. Zeroconf stays on and `compose.yaml` is unchanged. The IDEA Engine install sets
+`net.ipv4.igmp_max_memberships=1024` (Engine version: TBD). Workaround on an older host:
+`sysctl -w net.ipv4.igmp_max_memberships=1024`, and remove stale Docker networks.

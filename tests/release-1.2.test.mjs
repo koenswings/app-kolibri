@@ -58,3 +58,16 @@ test('engine_tested records the idea03 on-Pi check of 50be7cd (Engine 537b16d, 1
   assert.ok(!/engine_tested: "unknown"/.test(app))
   assert.ok(!/KOLIBRI_ZEROCONF_ENABLED/.test(compose), 'the override stayed test-only; compose is unchanged')
 })
+
+test('release notes carry the zeroconf / igmp_max_memberships known issue (compose unchanged)', () => {
+  const notes = readFileSync(join(root, 'docs/releases.md'), 'utf8')
+  assert.match(notes, /\*\*Known issue: zeroconf/)
+  assert.ok(notes.includes('net.ipv4.igmp_max_memberships'), 'sysctl named')
+  assert.match(notes, /above the number of Docker networks on the host/)
+  assert.ok(notes.includes('OSError: [Errno 105] No buffer space available'), 'error named')
+  assert.match(notes, /crash-loops/)
+  assert.ok(notes.includes('(Engine version: TBD)'), 'Engine version placeholder until the Engine change merges')
+  assert.ok(notes.includes('`sysctl -w net.ipv4.igmp_max_memberships=1024`'), 'workaround command')
+  assert.match(notes, /remove stale Docker networks/)
+  assert.ok(!/ZEROCONF/.test(compose), 'zeroconf stays on: no override in compose.yaml')
+})
