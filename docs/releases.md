@@ -34,5 +34,9 @@ multicast group on every host interface (`network_mode: host`). The host's
 If it is not, Kolibri exits at start with `OSError: [Errno 105] No buffer space available` and the
 container crash-loops (`restart: unless-stopped`). Seen on idea03 with 18 stale Docker bridges and the
 kernel default of 20. Zeroconf stays on and `compose.yaml` is unchanged. The IDEA Engine install sets
-`net.ipv4.igmp_max_memberships=1024` (Engine version: TBD). Workaround on an older host:
+`net.ipv4.igmp_max_memberships=1024` from Engine 71fc2c6 and later
+([agent-engine-dev@71fc2c6](https://github.com/koenswings/agent-engine-dev/commit/71fc2c670deff487af721ba46758fb0981aac38d),
+agent-engine-dev#342, idea#467; Engine package version 1.0). Its root install step (deploy-engine-pi, sync-engine,
+build-engine) writes `/etc/sysctl.d/90-idea-igmp.conf` and applies it; an image build installs the file
+for first boot. The Engine start-up self-check warns when the live value is below 1024. Workaround on an older host:
 `sysctl -w net.ipv4.igmp_max_memberships=1024`, and remove stale Docker networks.
