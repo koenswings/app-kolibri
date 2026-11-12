@@ -20,6 +20,10 @@ Changes since the last tag, `1.1-0.19.5` (a344b06). Kolibri stays on 0.19.5 and 
   multi-platform **index** digest `sha256:a5ae1caf…dbadc31`, a linux/arm64 index with one manifest.
   The Engine (agent-engine-dev#296, 46da985) pulls by that ref, saves by `repo:tag` and checks the digest
   after `docker load`. 1.1-0.19.5 used the same image by tag only.
+- **Updating kits from 1.1:** the image reference changes from tag only (`koenswings/kolibri:1.1-0.19.5`
+  in 1.1-0.19.5) to tag plus digest (`koenswings/kolibri:1.1-0.19.5@sha256:a5ae1caf…`). It is the same
+  image. Kits updating from 1.1 rely on the Engine's digest check after load
+  ([agent-engine-dev#296](https://github.com/koenswings/agent-engine-dev/pull/296), 46da985).
 
 **Migration:** none. Kolibri stays on 0.19.5, so there is no database upgrade and data under
 `./data/kolibri` stays in place. `MORANGO_SYSTEM_ID` (`idea-${hostname}-${port}`) is unchanged.

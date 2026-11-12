@@ -32,6 +32,11 @@ test('release notes have a 1.2-0.19.5 section covering #17, #19 and #20', () => 
   const notes = readFileSync(join(root, 'docs/releases.md'), 'utf8')
   assert.match(notes, /^## 1\.2-0\.19\.5$/m)
   for (const s of ['idea#413', 'setup.coach', 'idea#322', '1.1-0.19.5']) assert.ok(notes.includes(s), s)
+  // 1.1 -> 1.2: tag-only ref becomes tag+digest of the same image; kits rely on the Engine digest check (#296)
+  assert.match(notes, /tag only \(`koenswings\/kolibri:1\.1-0\.19\.5`/)
+  assert.ok(notes.includes('`koenswings/kolibri:1.1-0.19.5@sha256:a5ae1caf'), 'tag+digest named')
+  assert.ok(notes.includes(PIN.split('@')[0]) && PIN.startsWith('koenswings/kolibri:1.1-0.19.5@'), 'same image tag as the pin')
+  assert.ok(notes.includes('agent-engine-dev/pull/296') && notes.includes('46da985'), 'Engine digest check named')
   assert.match(readFileSync(join(root, 'docs/INDEX.md'), 'utf8'), /\(\.\/releases\.md\)/)
 })
 
