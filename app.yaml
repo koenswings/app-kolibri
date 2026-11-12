@@ -3,7 +3,12 @@ idea_app_version: "1.0"
 
 compatibility:
   engine_min: "0.9.0"       # minimum Engine version this App Disk requires
-  engine_tested: "unknown"  # to be updated on first test harness run
+  # 1.2-0.19.5 (setup.coach, idea#462): on-Pi check on idea03 at 47fea44, compose as shipped (zeroconf on, no override), throwaway project kidk21: setup.coach 5/4, collector 4, 0 restarts.
+  # Needs net.ipv4.igmp_max_memberships above the host's Docker network count (docs/releases.md Known issue); idea03 had 1024.
+  engine_tested:
+    commit: "537b16d"
+    version: "1.0"
+    date: "2026-11-12"
 
 services:
   - name: kolibri
