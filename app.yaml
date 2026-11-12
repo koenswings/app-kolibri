@@ -3,7 +3,12 @@ idea_app_version: "1.0"
 
 compatibility:
   engine_min: "0.9.0"       # minimum Engine version this App Disk requires
-  engine_tested: "unknown"  # to be updated on first test harness run
+  # 1.2-0.19.5 (setup.coach, idea#462): on-Pi check on idea03 at 50be7cd, throwaway compose project kidk21 (setup.coach 5/4, collector 4).
+  # The run used KOLIBRI_ZEROCONF_ENABLED=False in a test-only override: idea03 has 18 stale docker bridges and zeroconf hit ENOBUFS (igmp_max_memberships 20).
+  engine_tested:
+    commit: "537b16d"
+    version: "1.0"
+    date: "2026-11-12"
 
 services:
   - name: kolibri

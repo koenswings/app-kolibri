@@ -45,3 +45,16 @@ test('agent-app-dev check-compose --release --tag 1.2-0.19.5 (when AAD_CHECK_COM
     const r = spawnSync('node', [process.env.AAD_CHECK_COMPOSE, '--release', '--tag', VER, join(root, 'compose.yaml')], { encoding: 'utf8' })
     assert.equal(r.status, 0, r.stdout + r.stderr)
   })
+
+test('engine_tested records the idea03 on-Pi check of 50be7cd (Engine 537b16d, 1.0)', () => {
+  const app = readFileSync(join(root, 'app.yaml'), 'utf8')
+  const m = app.match(/^  engine_tested:\n    commit: "([0-9a-f]+)"\n    version: "([^"]+)"\n    date: "(\d{4}-\d{2}-\d{2})"$/m)
+  assert.ok(m, 'engine_tested is a {commit, version, date} block (agent-app-dev engine-tested.mjs)')
+  assert.equal(m[1], '537b16d')
+  assert.equal(m[2], '1.0')
+  assert.equal(m[3], '2026-11-12')
+  assert.match(app, /on-Pi check on idea03 at 50be7cd/)
+  assert.match(app, /KOLIBRI_ZEROCONF_ENABLED=False in a test-only override/)
+  assert.ok(!/engine_tested: "unknown"/.test(app))
+  assert.ok(!/KOLIBRI_ZEROCONF_ENABLED/.test(compose), 'the override stayed test-only; compose is unchanged')
+})
