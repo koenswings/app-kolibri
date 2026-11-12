@@ -207,6 +207,7 @@ class UsageHookTests(unittest.TestCase):
         self.assertEqual(obj["setup"]["learnerDelta"], 1)
         self.assertEqual(obj["setup"]["learnerEnrolled"], 2)
         self.assertEqual(obj["setup"]["teacher"], {"total": 1, "beyondSeed": 0})
+        self.assertEqual(obj["setup"]["coach"], {"total": 1, "beyondSeed": 0})
         self.assertEqual(obj["setup"]["admin"], {"total": 1, "beyondSeed": 0})
         self.assertNotIn("teachers", obj["setup"])
         self.assertNotIn("admins", obj["setup"])
@@ -231,6 +232,85 @@ class UsageHookTests(unittest.TestCase):
         self.assertEqual(obj["teaching"]["quizzesCreated"], 1)
         self.assertEqual(obj["teaching"]["quizzesStarted"], 1)
         self.assertEqual(obj["teaching"]["quizzesEnded"], 0)
+
+    def test_missing_db_emits_empty_coach(self):
+        proc = run_hook(self.tmp, ["day", DAY])
+        self.assertEqual(proc.returncode, 0, proc.stderr.decode())
+        obj, _, _ = parse(proc)
+        self.assertEqual(obj["setup"]["coach"], {"total": 0, "beyondSeed": 0})
+        self.assertEqual(obj["setup"]["admin"], {"total": 0, "beyondSeed": 0})
+        self.assertEqual(obj["setup"]["teacher"], {"total": 0, "beyondSeed": 0})
+        self.assertEqual(obj["setup"]["learner"], {"total": 0, "beyondSeed": 0})
+
+    def test_setup_coach_includes_admin_excludes_seed_and_counts_once(self):
+        # setup.coach is every account holding a coach role, admins included.
+        # beyondSeed uses the same teacher1/teacher2 seed list as setup.teacher.
+        conn = self.connect()
+        conn.execute("INSERT INTO kolibriauth_collection VALUES ('fac1','West School','facility',NULL)")
+        conn.execute("INSERT INTO kolibriauth_collection VALUES ('cls1','Grade 5','classroom','fac1')")
+        conn.executemany(
+            "INSERT INTO kolibriauth_facilityuser VALUES (?,?,?,?,?,?)",
+            [
+                ("u-admin-coach", "head", "2026-01-01 00:00:00", "fac1", 0, None),
+                ("u-admin-only", "admin", "2026-01-01 00:00:00", "fac1", 0, None),
+                ("u-plain", "mina", "2026-01-02 00:00:00", "fac1", 0, None),
+                ("u-both", "sam", "2026-01-03 00:00:00", "fac1", 0, None),
+                ("u-learner", "ann", "2026-01-04 00:00:00", "fac1", 0, None),
+                ("u-seed1", "teacher1", "2026-01-05 00:00:00", "fac1", 0, None),
+                ("u-seed2", "teacher2", "2026-01-06 00:00:00", "fac1", 0, None),
+                ("u-gone", "gone", "2026-01-07 00:00:00", "fac1", 1, "2026-02-01 00:00:00"),
+            ],
+        )
+        conn.execute("INSERT INTO device_devpermissions VALUES ('u-admin-coach', 1, 1)")
+        conn.execute("INSERT INTO device_devpermissions VALUES ('u-admin-only', 1, 1)")
+        conn.executemany(
+            "INSERT INTO kolibriauth_role VALUES (?,?,?,?)",
+            [
+                ("r-admin-coach", "u-admin-coach", "fac1", "coach"),
+                ("r-admin-role", "u-admin-only", "fac1", "admin"),
+                ("r-plain", "u-plain", "fac1", "coach"),
+                ("r-both-fac", "u-both", "fac1", "coach"),
+                ("r-both-cls", "u-both", "cls1", "classroom assignable coach"),
+                ("r-seed1", "u-seed1", "fac1", "coach"),
+                ("r-seed2", "u-seed2", "cls1", "classroom assignable coach"),
+                ("r-gone", "u-gone", "fac1", "coach"),
+            ],
+        )
+        conn.commit()
+        conn.close()
+        proc = run_hook(self.tmp, ["day", DAY])
+        self.assertEqual(proc.returncode, 0, proc.stderr.decode())
+        obj, out, _ = parse(proc)
+        self.assertTrue(FORBIDDEN.isdisjoint(obj), obj)
+        self.assertNotIn("head", out)
+        self.assertNotIn("teacher1", out)
+        self.assertNotIn("mina", out)
+        # admin+coach counts; plain coach counts; learner does not;
+        # seeds are in total only; class+facility coach counts once; deleted excluded.
+        self.assertEqual(obj["setup"]["coach"], {"total": 5, "beyondSeed": 3})
+        # existing highest-role fields stay unchanged
+        self.assertEqual(obj["setup"]["admin"], {"total": 2, "beyondSeed": 1})
+        self.assertEqual(obj["setup"]["teacher"], {"total": 4, "beyondSeed": 2})
+        self.assertEqual(obj["setup"]["learner"], {"total": 1, "beyondSeed": 1})
+
+    def test_setup_coach_underscore_class_role_kind(self):
+        # 0.15.5 and 0.19.5 store "classroom assignable coach"; also accept the underscore alias.
+        conn = self.connect()
+        conn.execute("INSERT INTO kolibriauth_collection VALUES ('fac1','West School','facility',NULL)")
+        conn.execute("INSERT INTO kolibriauth_collection VALUES ('cls1','Grade 5','classroom','fac1')")
+        conn.execute(
+            "INSERT INTO kolibriauth_facilityuser VALUES ('u-cls','pat','2026-01-01 00:00:00','fac1',0,NULL)"
+        )
+        conn.execute(
+            "INSERT INTO kolibriauth_role VALUES ('r1','u-cls','cls1','classroom_assignable_coach')"
+        )
+        conn.commit()
+        conn.close()
+        proc = run_hook(self.tmp, ["day", DAY])
+        self.assertEqual(proc.returncode, 0, proc.stderr.decode())
+        obj, _, _ = parse(proc)
+        self.assertEqual(obj["setup"]["coach"], {"total": 1, "beyondSeed": 1})
+        self.assertEqual(obj["setup"]["teacher"], {"total": 1, "beyondSeed": 1})
 
     def test_demo_seed_exclusion_by_id_not_username(self):
         conn = self.connect()
