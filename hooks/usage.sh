@@ -164,6 +164,7 @@ def empty_day(day, demo=False):
             "teachersDelta": 0,
             "admin": empty_role(),
             "teacher": empty_role(),
+            "coach": empty_role(),
             "learner": empty_role(),
         },
         "signins": empty_signins(),
@@ -371,13 +372,15 @@ def summarize(conn, kolibri_home, day):
             return False
         return True
 
-    learners, teachers, admins = set(), set(), set()
+    learners, teachers, admins, coaches = set(), set(), set(), set()
     uid_to_name = {}
     for row in users:
         uid = str(row["id"])
         uid_to_name[uid] = str(row["username"] or "")
         if not alive(row):
             continue
+        if roles_by_user.get(uid, set()) & ROLE_COACH:
+            coaches.add(uid)
         r = role_of.get(uid, "learner")
         if r == "admin":
             admins.add(uid)
@@ -607,6 +610,7 @@ def summarize(conn, kolibri_home, day):
             "teachersDelta": 0,
             "admin": role_count(admins, uid_to_name, SEED_ADMIN),
             "teacher": role_count(teachers, uid_to_name, SEED_TEACHER),
+            "coach": role_count(coaches, uid_to_name, SEED_TEACHER),
             "learner": role_count(learners, uid_to_name, SEED_LEARNER),
         },
         "signins": signins,
