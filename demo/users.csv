@@ -4,3 +4,4 @@ UUID,USERNAME,PASSWORD,FULL_NAME,USER_TYPE,IDENTIFIER,BIRTH_YEAR,GENDER,ENROLLED
 ,learner1,learner1911!,Learner One,LEARNER,,,,Grade 5,
 ,learner2,learner2911!,Learner Two,LEARNER,,,,Grade 5,
 ,learner3,learner3911!,Learner Three,LEARNER,,,,Grade 5,
+,learner4,learner4911!,Learner Four,LEARNER,,,,,

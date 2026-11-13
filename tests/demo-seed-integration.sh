@@ -77,7 +77,7 @@ scenario() {  # A: empty demo instance, marked by its folder name
   SC=A; local R; R="$(mktemp -d)"; DIRS+=("$R"); D="$R/kolibri-demo/data/kolibri"; mkdir -p "$D"
   local L1=/tmp/it-$$-$SC-1.log L2=/tmp/it-$$-$SC-2.log
   demo/provision-demo.sh "$D" > "$L1" 2>&1 || { cat "$L1"; fail "first run"; }
-  report "$L1" | grep -q "'created': 5" || fail "first run did not create 5 users: $(report "$L1")"
+  report "$L1" | grep -q "'created': 6" || fail "first run did not create 6 users: $(report "$L1")"
   demo/provision-demo.sh "$D" > "$L2" 2>&1 || { cat "$L2"; fail "second run"; }
   grep -q "Demo instance marker: instance folder kolibri-demo" "$L1" || fail "folder marker not used"
   grep -q "not running provisiondevice" "$L2" || fail "rerun ran provisiondevice"
@@ -90,7 +90,7 @@ scenario() {  # A: empty demo instance, marked by its folder name
   python3 - "$SC" "$AFTER" <<'PY' || fail "data check"
 import json, sys
 sc, after = sys.argv[1], json.loads(sys.argv[2])
-demo = {"admin", "teacher1", "teacher2", "learner1", "learner2", "learner3"}
+demo = {"admin", "teacher1", "teacher2", "learner1", "learner2", "learner3", "learner4"}
 inn = {u[1] for u in after["users"] if u[0] == "IDEA Demo School"}
 assert inn == demo, ("IDEA Demo School users", inn)
 for u in after["users"]:
@@ -117,13 +117,13 @@ PY
     c=$(login "$F" "$u"); [ "$c" != 200 ] || fail "login $u without a password -> 200"
   done
   echo "PASS[$SC] admin/teacher1/teacher2 need <account>911!"
-  for u in learner1 learner2 learner3; do
+  for u in learner1 learner2 learner3 learner4; do
     c=$(login "$F" "$u"); [ "$c" = 200 ] || fail "learner $u username-only -> $c"
     c=$(login "$F" "$u" "anything-wrong"); [ "$c" = 200 ] || fail "learner $u with a random password -> $c"
   done
   echo "PASS[$SC] learners sign in with username only"
   c=$(setting "$F" false); [ "$c" = 200 ] || fail "switch setting off -> $c"
-  for u in learner1 learner2 learner3; do
+  for u in learner1 learner2 learner3 learner4; do
     c=$(login "$F" "$u" "${u}911!"); [ "$c" = 200 ] || fail "setting off: $u with ${u}911! -> $c"
     c=$(login "$F" "$u" "wrong-pass"); [ "$c" = 401 ] || fail "setting off: $u wrong -> $c"
   done

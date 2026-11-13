@@ -155,5 +155,66 @@ class UpsertQuizRequests(unittest.TestCase):
         self.assertNotIn("draft", calls[0][2])
 
 
+class ProgressPlan(unittest.TestCase):
+    def test_exercise_answers_reach_mastery_after_one_wrong(self):
+        self.assertEqual(sc.exercise_answers({"type": "m_of_n", "m": 4, "n": 5}, 6), [0, 1, 1, 1, 1])
+        self.assertEqual(sc.exercise_answers({"type": "do_all"}, 4), [0, 1, 1, 1, 1])
+        self.assertEqual(sc.exercise_answers({"type": "num_correct_in_a_row_3"}, 6), [0, 1, 1, 1])
+        mm = sc.mastery_model(dict(assessmentmetadata=dict(mastery_model='{"type": "m_of_n", "m": 4, "n": 5}')))
+        self.assertEqual(mm["m"], 4)
+
+    def test_quiz_answers_seven_of_ten(self):
+        a = sc.quiz_answers(10)
+        self.assertEqual((len(a), sum(a)), (10, 7))
+
+    def test_status_of(self):
+        rows = [dict(learner_id="L", content_id="c", status="Completed"), dict(learner_id="M", content_id="c", status="Started")]
+        self.assertEqual(sc.status_of(rows, "L", "content_id", "c"), "Completed")
+        self.assertIsNone(sc.status_of(rows, "X", "content_id", "c"))
+
+
+class SeedProgressIdempotent(unittest.TestCase):
+    """A rerun writes nothing when Coach already shows the learner's items as Completed."""
+
+    EX = dict(id="e" * 32, content_id="ec" * 16, channel_id="h" * 32, kind="exercise", title="Fractions practice",
+              assessmentmetadata=dict(assessment_item_ids=["1" * 32], mastery_model={"type": "do_all"}))
+    VID = dict(id="v" * 32, content_id="vc" * 16, channel_id="h" * 32, kind="video", title="Counting fruit")
+
+    def summary(self, done):
+        st = "Completed" if done else "Started"
+        return dict(learners=[dict(id="L3", username="learner3")],
+                    exams=[dict(id="q" * 32, title=sc.QUIZ_TITLE)],
+                    content_learner_status=[dict(learner_id="L3", content_id=self.EX["content_id"], status=st),
+                                            dict(learner_id="L3", content_id=self.VID["content_id"], status=st)],
+                    exam_learner_status=[dict(learner_id="L3", exam_id="q" * 32, status=st)] if done else [])
+
+    def test_rerun_writes_nothing(self):
+        calls = []
+        summ = self.summary(True)
+
+        class FakeApi(object):
+            def get(self, path, **q):
+                return summ
+
+            def call(self, method, path, body=None, query=None):
+                calls.append((method, path))
+                return {}
+
+        out = sc.seed_progress(FakeApi(), "http://x", "classid", "learner3",
+                               {"Maths lesson": dict(id="lessonid", title="Maths lesson")}, "q" * 32,
+                               {"lessonid": [self.VID, self.EX]}, False)
+        self.assertEqual(calls, [])
+        self.assertEqual([i["action"] for i in out["items"]], ["unchanged", "unchanged", "unchanged"])
+        self.assertEqual([i["title"] for i in out["items"]], ["Fractions practice", "Counting fruit", sc.QUIZ_TITLE])
+
+    def test_learner_must_be_enrolled(self):
+        class FakeApi(object):
+            def get(self, path, **q):
+                return dict(learners=[])
+        with self.assertRaises(SystemExit) as e:
+            sc.seed_progress(FakeApi(), "http://x", "c", "learner3", {}, "q", {}, False)
+        self.assertIn("not enrolled", str(e.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

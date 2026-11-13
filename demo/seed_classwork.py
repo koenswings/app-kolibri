@@ -10,12 +10,21 @@ Creates in class "Grade 5" of IDEA Demo School:
     resource of the channel, in channel order, active (visible to Grade 5);
   * one quiz "Grade 5 Practice Quiz": the questions of every exercise in the
     channels (in channel order, at most --max-questions), assigned to Grade 5,
-    fixed order, and started (active), so learners see it under Classes > Grade 5.
+    fixed order, and started (active), so learners see it under Classes > Grade 5
+    and under Recent quizzes on their HOME page;
+  * prior progress for one learner (--progress-learner, default learner3), so the
+    Coach reports are not empty: in "Maths lesson" the exercise "Fractions practice"
+    is completed (mastery reached, one wrong answer on the way) and the first
+    non-exercise resource is viewed; the quiz is submitted with 7 of 10 right.
+    This signs in AS the learner (username only) and uses the same progress
+    tracking API the Learn page uses (/api/logger/trackprogress/). --no-progress skips it.
 
 Idempotent: an existing lesson/quiz with the same title in Grade 5 is updated
 (resources / active) instead of duplicated. A quiz that learners already
 answered keeps its questions (Kolibri forbids changing them); it is only made
-active again.
+active again. Learner progress is only written for an item the Coach class
+summary does not already show as Completed for that learner, so a rerun writes
+no new progress.
 
 On Kolibri 0.19.x, a new quiz is a DraftExam until it is published (`draft=False`),
 which converts it to an Exam. Setting `active=True` on a DraftExam is rejected
@@ -25,8 +34,9 @@ Lesson writes use the 0.19.x field names `active` and `assignments` (0.15.5
 names `is_active` and `lesson_assignments` are also sent and ignored on 0.19.x).
 
 Usage: seed_classwork.py --url http://127.0.0.1:PORT [--user teacher1]
-         [--password teacher1911!] [--class "Grade 5"] [--no-lessons] [--dry-run]
-Prints one JSON line at the end: {"result": "ok", "lessons": [...], "quiz": {...}}.
+         [--password teacher1911!] [--class "Grade 5"] [--no-lessons]
+         [--progress-learner learner3 | --no-progress] [--dry-run]
+Prints one JSON line at the end: {"result": "ok", "lessons": [...], "quiz": {...}, "progress": {...}}.
 """
 import argparse
 import http.cookiejar
@@ -41,6 +51,14 @@ QUIZ_TITLE = "Grade 5 Practice Quiz"
 # The IDEA-DEMO channels (by name). Other channels on the device (e.g. Khan Academy) are ignored.
 DEMO_CHANNELS = ("Early Reading", "Grade 5 Science", "Maths")
 QUIZ_SECTION_TITLE = "Grade 5 Practice"
+# Prior progress for the Coach reports (tutorial 3.5: "learner3 has already done the
+# exercise and the quiz"). The exercise is looked up by title in this lesson.
+PROGRESS_LESSON = "Maths lesson"
+PROGRESS_EXERCISE = "Fractions practice"
+# Quiz answers of the progress learner: 0-based question indexes answered wrong (7 of 10 right),
+# so DIFFICULT QUESTIONS in the quiz report has something to show.
+QUIZ_WRONG = (2, 5, 8)
+COMPLETED = "Completed"
 
 
 class Api(object):
@@ -77,11 +95,15 @@ class Api(object):
 
 
 def login(api, user, password):
+    """password None = username-only sign-in (learners; learner_can_login_with_no_password)."""
     fac = [f for f in api.get("/api/public/v1/facility/") if f["name"] == FACILITY]
     if len(fac) != 1:
         raise SystemExit("ERROR: expected one facility %r, found %d" % (FACILITY, len(fac)))
     fid = fac[0]["id"]
-    me = api.call("POST", "/api/auth/session/", dict(username=user, password=password, facility=fid))
+    body = dict(username=user, facility=fid)
+    if password is not None:
+        body["password"] = password
+    me = api.call("POST", "/api/auth/session/", body)
     if me.get("username") != user:
         raise SystemExit("ERROR: could not sign in as %s" % user)
     return fid, me
@@ -213,6 +235,141 @@ def upsert_quiz(api, cid, me, sources, dry):
     return dict(id=r["id"], title=QUIZ_TITLE, questions=len(sources), action="created")
 
 
+def mastery_model(node):
+    mm = (node.get("assessmentmetadata") or {}).get("mastery_model") or {"type": "do_all"}
+    return json.loads(mm) if isinstance(mm, str) else mm
+
+
+def exercise_answers(mm, n_items):
+    """Correct/incorrect sequence that reaches mastery with one wrong answer first
+    (m_of_n: wrong, then m right; do_all: wrong, then every item right)."""
+    t = mm.get("type") or ""
+    if t == "m_of_n" and mm.get("m") and mm.get("n"):
+        need = int(mm["m"])
+    elif t.startswith("num_correct_in_a_row_") and t.rsplit("_", 1)[-1].isdigit():
+        need = int(t.rsplit("_", 1)[-1])
+    else:  # do_all (and anything unknown): every question right
+        need = n_items
+    return [0] + [1] * need
+
+
+def quiz_answers(n, wrong=QUIZ_WRONG):
+    return [0 if i in wrong else 1 for i in range(n)]
+
+
+def status_of(rows, learner_id, key, value):
+    for r in rows or []:
+        if r.get("learner_id") == learner_id and r.get(key) == value:
+            return r.get("status")
+    return None
+
+
+def do_exercise(L, node, lesson_id):
+    items = (node.get("assessmentmetadata") or {}).get("assessment_item_ids") or []
+    if not items:
+        raise SystemExit("ERROR: exercise %r has no questions" % node["title"])
+    mm = mastery_model(node)
+    s = L.call("POST", "/api/logger/trackprogress/", dict(
+        node_id=node["id"], content_id=node["content_id"], channel_id=node["channel_id"],
+        kind="exercise", mastery_model=mm, lesson_id=lesson_id))
+    if s.get("complete"):
+        return "already-completed"
+    seq = exercise_answers(mm, len(items))
+    out = {}
+    for k, correct in enumerate(seq):
+        last = k == len(seq) - 1
+        body = dict(time_spent_delta=20, interactions=[dict(
+            item=items[k % len(items)], correct=correct, complete=True, time_spent=20,
+            answer={"idea_demo_seed": True}, simple_answer="right" if correct else "wrong")])
+        if last:
+            body["progress"] = 1
+        out = L.call("PUT", "/api/logger/trackprogress/%s/" % s["session_id"], body)
+    if not out.get("complete"):
+        raise SystemExit("ERROR: exercise %r not completed after %d answers" % (node["title"], len(seq)))
+    return "completed"
+
+
+def do_view(L, node, lesson_id):
+    s = L.call("POST", "/api/logger/trackprogress/", dict(
+        node_id=node["id"], content_id=node["content_id"], channel_id=node["channel_id"],
+        kind=node["kind"], lesson_id=lesson_id))
+    if s.get("complete"):
+        return "already-completed"
+    L.call("PUT", "/api/logger/trackprogress/%s/" % s["session_id"], dict(progress=1, time_spent_delta=90))
+    return "completed"
+
+
+def do_quiz(L, exam):
+    srcs = flatten_questions(exam.get("question_sources"))
+    if not srcs:
+        raise SystemExit("ERROR: quiz %r has no questions" % exam.get("title"))
+    s = L.call("POST", "/api/logger/trackprogress/", dict(quiz_id=exam["id"]))
+    if s.get("complete"):
+        return "already-submitted", None
+    answers = quiz_answers(len(srcs))
+    for k, (src, correct) in enumerate(zip(srcs, answers)):
+        body = dict(time_spent_delta=15, interactions=[dict(
+            item="%s:%s" % (src["exercise_id"], src["question_id"]), correct=correct, complete=True,
+            time_spent=15, answer={"idea_demo_seed": True}, simple_answer="right" if correct else "wrong",
+            replace=True)])
+        if k == len(srcs) - 1:
+            body["progress"] = 1  # = SUBMIT QUIZ in Learn (ExamPage close)
+        out = L.call("PUT", "/api/logger/trackprogress/%s/" % s["session_id"], body)
+    if not out.get("complete"):
+        raise SystemExit("ERROR: quiz not submitted")
+    return "submitted", sum(answers)
+
+
+def seed_progress(api, base, cid, learner, lessons_by_title, exam_id, channel_nodes, dry):
+    """Prior progress for `learner` (signed in as that learner, username only).
+    Writes nothing for an item Coach already shows as Completed."""
+    summ = api.get("/coach/api/classsummary/%s/" % cid)
+    ls = [u for u in summ.get("learners", []) if u.get("username") == learner]
+    if len(ls) != 1:
+        raise SystemExit("ERROR: learner %r is not enrolled in the class" % learner)
+    lid = ls[0]["id"]
+    lesson = lessons_by_title.get(PROGRESS_LESSON)
+    if not lesson:
+        raise SystemExit("ERROR: lesson %r not found; seed lessons first" % PROGRESS_LESSON)
+    nodes = channel_nodes.get(lesson["id"], [])
+    exs = [n for n in nodes if n["kind"] == "exercise"]
+    ex = [n for n in exs if n["title"] == PROGRESS_EXERCISE] or exs
+    views = [n for n in nodes if n["kind"] not in ("exercise", "topic")]
+    exam = [e for e in summ.get("exams", []) if e["id"] == exam_id]
+    plan = []
+    if ex:
+        plan.append(("exercise", ex[0]))
+    if views:
+        plan.append(("view", views[0]))
+    out = dict(learner=learner, items=[])
+    if dry:
+        out["items"] = [dict(kind=k, title=n["title"], action="dry-run") for k, n in plan] + [
+            dict(kind="quiz", title=QUIZ_TITLE, action="dry-run")]
+        return out
+    L = None
+    for kind, node in plan:
+        st = status_of(summ.get("content_learner_status"), lid, "content_id", node["content_id"])
+        if st == COMPLETED:
+            out["items"].append(dict(kind=kind, title=node["title"], action="unchanged"))
+            continue
+        if L is None:
+            L = Api(base)
+            login(L, learner, None)
+        act = do_exercise(L, node, lesson["id"]) if kind == "exercise" else do_view(L, node, lesson["id"])
+        out["items"].append(dict(kind=kind, title=node["title"], action=act))
+    st = status_of(summ.get("exam_learner_status"), lid, "exam_id", exam_id)
+    if st == COMPLETED or not exam:
+        out["items"].append(dict(kind="quiz", title=QUIZ_TITLE, action="unchanged" if exam else "no-quiz"))
+    else:
+        if L is None:
+            L = Api(base)
+            login(L, learner, None)
+        exam_full = api.call("GET", "/api/exams/exam/%s/" % exam_id)
+        act, right = do_quiz(L, exam_full)
+        out["items"].append(dict(kind="quiz", title=QUIZ_TITLE, action=act, correct=right))
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--url", required=True, help="Kolibri base URL, e.g. http://127.0.0.1:18320")
@@ -222,6 +379,9 @@ def main(argv=None):
     ap.add_argument("--max-questions", type=int, default=10)
     ap.add_argument("--channel", action="append", help="channel name to use (repeatable; default: %s)" % ", ".join(DEMO_CHANNELS))
     ap.add_argument("--no-lessons", action="store_true")
+    ap.add_argument("--progress-learner", default="learner3",
+                    help="learner who gets prior progress (exercise + quiz) for the Coach reports")
+    ap.add_argument("--no-progress", action="store_true", help="do not write any learner progress")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     api = Api(a.url)
@@ -233,15 +393,21 @@ def main(argv=None):
     names = a.channel or list(DEMO_CHANNELS)
     channels = sorted((c for c in api.get("/api/content/channel/", available="true") if c["name"] in names),
                       key=lambda c: c["name"])
-    lessons, exercises = [], []
+    lessons, exercises, nodes_by_lesson = [], [], {}
     for ch in channels:
         res = tree(api, ch)
         exercises += [n for n in res if n["kind"] == "exercise"]
         if res and not a.no_lessons:
-            lessons.append(upsert_lesson(api, cid, me, "%s lesson" % ch["name"], res, a.dry_run))
+            l = upsert_lesson(api, cid, me, "%s lesson" % ch["name"], res, a.dry_run)
+            lessons.append(l)
+            nodes_by_lesson[l.get("id")] = res
     quiz = upsert_quiz(api, cid, me, quiz_sources(exercises, a.max_questions), a.dry_run)
+    progress = None
+    if not a.no_progress and not a.no_lessons:
+        progress = seed_progress(api, a.url, cid, a.progress_learner,
+                                 {l["title"]: l for l in lessons}, quiz.get("id"), nodes_by_lesson, a.dry_run)
     print(json.dumps(dict(result="ok", classroom=cid, lessons=lessons, quiz=quiz,
-                          exercises=len(exercises))))
+                          exercises=len(exercises), progress=progress)))
     return 0
 
 

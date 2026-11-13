@@ -23,7 +23,8 @@
 #   6. startInstance <id> <disk>   (also attempted after a failure in 4/5)
 #   7. demo/seed_classwork.py against the running demo as teacher1 (Kolibri REST API, what
 #      Coach > Plan does): one lesson per channel + "Grade 5 Practice Quiz" from the
-#      channels' exercises, assigned to Grade 5 and started. Skipped with --no-channels
+#      channels' exercises, assigned to Grade 5 and started, then prior progress for
+#      learner3 (exercise + quiz, signed in as learner3). Skipped with --no-channels
 #      or --no-classwork. Exit 19 if it fails (the instance stays running).
 # A rerun finds the existing "Kolibri Demo" and re-seeds it: no second instance.
 #
