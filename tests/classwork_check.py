@@ -113,7 +113,8 @@ def main(argv=None):
     except SystemExit:
         full = T.get("/api/exams/exam/%s/" % q["id"])
     s = L.call("POST", "/api/logger/trackprogress/", dict(quiz_id=q["id"]))
-    srcs = full["question_sources"]
+    srcs = sc.flatten_questions(full["question_sources"])
+    ok(srcs, "quiz has questions after flatten (V3 sections or V2 list)")
     for k, src in enumerate(srcs, 1):
         out = L.call("PUT", "/api/logger/trackprogress/%s/" % s["session_id"], dict(
             progress=k / float(len(srcs)), time_spent_delta=5,

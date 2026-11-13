@@ -17,6 +17,13 @@ Idempotent: an existing lesson/quiz with the same title in Grade 5 is updated
 answered keeps its questions (Kolibri forbids changing them); it is only made
 active again.
 
+On Kolibri 0.19.x, a new quiz is a DraftExam until it is published (`draft=False`),
+which converts it to an Exam. Setting `active=True` on a DraftExam is rejected
+("Cannot update active to true on a DraftExam"). This script publishes and
+starts in one request, and wraps questions in the 0.19.x QuizSection shape.
+Lesson writes use the 0.19.x field names `active` and `assignments` (0.15.5
+names `is_active` and `lesson_assignments` are also sent and ignored on 0.19.x).
+
 Usage: seed_classwork.py --url http://127.0.0.1:PORT [--user teacher1]
          [--password teacher1911!] [--class "Grade 5"] [--no-lessons] [--dry-run]
 Prints one JSON line at the end: {"result": "ok", "lessons": [...], "quiz": {...}}.
@@ -33,6 +40,7 @@ FACILITY = "IDEA Demo School"
 QUIZ_TITLE = "Grade 5 Practice Quiz"
 # The IDEA-DEMO channels (by name). Other channels on the device (e.g. Khan Academy) are ignored.
 DEMO_CHANNELS = ("Early Reading", "Grade 5 Science", "Maths")
+QUIZ_SECTION_TITLE = "Grade 5 Practice"
 
 
 class Api(object):
@@ -88,17 +96,29 @@ def tree(api, channel):
     return sorted(nodes, key=lambda n: (n.get("lft") or 0, n["title"]))
 
 
+def lesson_payload(cid, me, title, resources):
+    """Write payload accepted by Kolibri 0.19.x, with 0.15.5 aliases included."""
+    return dict(
+        title=title, collection=cid, description="IDEA demo lesson",
+        resources=[dict(contentnode_id=n["id"], content_id=n["content_id"], channel_id=n["channel_id"])
+                   for n in resources],
+        created_by=me["user_id"],
+        # 0.19.x LessonSerializer: active (source=is_active) and assignments
+        active=True, assignments=[cid],
+        # 0.15.5 names; ignored on 0.19.x (not in serializer fields)
+        is_active=True, lesson_assignments=[cid],
+    )
+
+
 def upsert_lesson(api, cid, me, title, resources, dry):
-    want = dict(title=title, collection=cid, description="IDEA demo lesson", is_active=True,
-                resources=[dict(contentnode_id=n["id"], content_id=n["content_id"], channel_id=n["channel_id"])
-                           for n in resources],
-                lesson_assignments=[cid], created_by=me["user_id"])
+    want = lesson_payload(cid, me, title, resources)
     old = [l for l in api.get("/api/lessons/lesson/", collection=cid) if l["title"] == title]
     if dry:
         return dict(title=title, resources=len(resources), action="dry-run")
+    patch = dict(resources=want["resources"], active=True, assignments=[cid],
+                 is_active=True, lesson_assignments=[cid])
     if old:
-        api.call("PATCH", "/api/lessons/lesson/%s/" % old[0]["id"],
-                 dict(resources=want["resources"], is_active=True, lesson_assignments=[cid]))
+        api.call("PATCH", "/api/lessons/lesson/%s/" % old[0]["id"], patch)
         return dict(id=old[0]["id"], title=title, resources=len(resources), action="updated")
     r = api.call("POST", "/api/lessons/lesson/", want)
     return dict(id=r["id"], title=title, resources=len(resources), action="created")
@@ -115,33 +135,81 @@ def quiz_sources(exercises, limit):
     return out
 
 
+def quiz_sections(sources, fixed_order=True):
+    """Wrap a V2 question list as a single Kolibri 0.19.x QuizSection."""
+    return [dict(
+        section_title=QUIZ_SECTION_TITLE,
+        description="IDEA demo quiz",
+        questions=list(sources),
+        learners_see_fixed_order=fixed_order,
+    )]
+
+
+def flatten_questions(question_sources):
+    """V3 sections or a V2 flat list -> a list of question dicts."""
+    out = []
+    for item in question_sources or []:
+        if not isinstance(item, dict):
+            continue
+        if "questions" in item:
+            out.extend(q for q in (item.get("questions") or []) if isinstance(q, dict))
+        elif "exercise_id" in item:
+            out.append(item)
+    return out
+
+
+def question_pairs(question_sources):
+    return [(q["exercise_id"], q.get("question_id")) for q in flatten_questions(question_sources)]
+
+
+def is_v3_sections(question_sources):
+    return bool(question_sources) and all(
+        isinstance(s, dict) and "questions" in s for s in question_sources
+    )
+
+
+def is_draft_exam(exam):
+    """0.19.x lists DraftExam with draft=True (integer pk) and Exam with draft=False (UUID pk)."""
+    if exam.get("draft") is True:
+        return True
+    if exam.get("draft") is False:
+        return False
+    # Fallback if an older build omits the flag: DraftExam primary keys are integers.
+    pk = exam.get("id")
+    return isinstance(pk, int) or (isinstance(pk, str) and pk.isdigit())
+
+
 def upsert_quiz(api, cid, me, sources, dry):
     if not sources:
         raise SystemExit("ERROR: no exercises with questions found on this device; build the demo channels with exercises first")
+    sections = quiz_sections(sources, fixed_order=True)
     old = [e for e in api.get("/api/exams/exam/", collection=cid) if e["title"] == QUIZ_TITLE]
     if dry:
         return dict(title=QUIZ_TITLE, questions=len(sources), action="dry-run")
     if old:
         e = old[0]
-        patch = dict(active=True, archive=False, assignments=[cid])
-        if [ (q["exercise_id"], q.get("question_id")) for q in e["question_sources"] ] != \
-           [ (q["exercise_id"], q["question_id"]) for q in sources ]:
-            patch.update(question_sources=sources, question_count=len(sources))
-        try:
-            api.call("PATCH", "/api/exams/exam/%s/" % e["id"], patch)
-        except SystemExit:
-            if "question_sources" not in patch:
-                raise
-            # learners already answered: Kolibri refuses to change questions; keep them
-            patch.pop("question_sources"); patch.pop("question_count")
-            api.call("PATCH", "/api/exams/exam/%s/" % e["id"], patch)
-        return dict(id=e["id"], title=QUIZ_TITLE, questions=len(sources), action="updated")
+        if is_draft_exam(e):
+            # Questions cannot be changed in the same request as publish (0.19.5 serializer).
+            if (not is_v3_sections(e.get("question_sources"))
+                    or question_pairs(e.get("question_sources")) != question_pairs(sections)):
+                api.call("PATCH", "/api/exams/exam/%s/" % e["id"],
+                         dict(question_sources=sections))
+            # Publish DraftExam -> Exam and start it, assigned to the class.
+            r = api.call("PATCH", "/api/exams/exam/%s/" % e["id"],
+                         dict(draft=False, active=True, archive=False, assignments=[cid]))
+            return dict(id=r["id"], title=QUIZ_TITLE, questions=len(sources), action="updated")
+        # Already a published Exam: Kolibri forbids changing questions; keep them and re-activate.
+        r = api.call("PATCH", "/api/exams/exam/%s/" % e["id"],
+                     dict(active=True, archive=False, assignments=[cid]))
+        return dict(id=r.get("id", e["id"]), title=QUIZ_TITLE, questions=len(sources), action="updated")
+    # Create already published and started (draft=False allows active=True on create).
     r = api.call("POST", "/api/exams/exam/", dict(
-        title=QUIZ_TITLE, collection=cid, assignments=[cid], question_sources=sources,
-        question_count=len(sources), seed=2026, learners_see_fixed_order=True,
-        active=False, archive=False, date_archived=None, date_activated=None, creator=me["user_id"]))
-    # start it the way Coach does ("Start quiz" = PATCH active)
-    api.call("PATCH", "/api/exams/exam/%s/" % r["id"], dict(active=True))
+        title=QUIZ_TITLE, collection=cid, assignments=[cid],
+        question_sources=sections, learners_see_fixed_order=True,
+        draft=False, active=True, archive=False, creator=me["user_id"]))
+    if r.get("draft"):
+        r = api.call("PATCH", "/api/exams/exam/%s/" % r["id"],
+                     dict(draft=False, active=True, archive=False, assignments=[cid]))
     return dict(id=r["id"], title=QUIZ_TITLE, questions=len(sources), action="created")
 
 

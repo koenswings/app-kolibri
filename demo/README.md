@@ -139,7 +139,14 @@ Kolibri's own REST API, i.e. exactly what Coach > Plan does (no `manage shell`, 
 - quiz **Grade 5 Practice Quiz**: the questions of the channels' exercises (channel order,
   max 10), assigned to Grade 5, fixed order, started (active).
 
-Idempotent (same titles are updated, not duplicated). `--no-classwork` skips it; exit 19 if it fails.
+On Kolibri 0.19.x the quiz is created as a DraftExam. Publishing (`draft=False`) converts
+it to an Exam; `active=True` is only allowed on a published Exam (or in the same request
+as publish). Questions are sent as a 0.19.x QuizSection, not a flat V2 list. Lesson
+writes use `active` and `assignments` (0.15.5 still accepts `is_active` and
+`lesson_assignments`, which this script also sends).
+
+Idempotent (same titles are updated, not duplicated). A leftover unpublished draft is
+republished on a rerun. `--no-classwork` skips it; exit 19 if it fails.
 Exercises come from the channel builder's `*.exercise.json` (IDEA-DEMO disk: Maths + Early Reading).
 
 ## Tests
