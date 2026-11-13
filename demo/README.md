@@ -8,7 +8,7 @@ For demos (an **IDEA-DEMO** disk is docked, or the operator asks for demo mode),
 | What | Value |
 |---|---|
 | Facility | IDEA Demo School (preset `formal`, language `en`) |
-| Super admin | `admin` / `admin911!` |
+| Super admin | `admin` / `admin911!` (device superuser and facility admin; also a class coach of Grade 5, so they do not appear on ENROLL LEARNERS next to the learners) |
 | Class | Grade 5 |
 | Class coaches | `teacher1` / `teacher1911!`, `teacher2` / `teacher2911!` |
 | Learners | `learner1`…`learner3` (enrolled in Grade 5) and `learner4` (in the school only, **not** enrolled, for the tutorial's ENROLL LEARNERS step): sign in with the **username only**; stored fallback `learner1911!`… |
@@ -48,7 +48,13 @@ Users always go to IDEA Demo School by id (`--delete` is never used).
 updates existing users by UUID with `PASSWORD=*` (unchanged). Kolibri (0.15.5 and 0.19.5)
 matches users by UUID only, which is why step 2 exists. `--force-passwords`
 resets `teacher1`, `teacher2` and the learners to `<account>911!` (the admin is never reset).
-Users not in `demo/users.csv` are left alone.
+`demo/users.csv` includes `admin` as `USER_TYPE=ADMIN` with `ASSIGNED_TO=Grade 5`, so a
+re-run also assigns the existing superuser as a class coach (see below).
+`bulkexportusers` intentionally skips facility admins, so the seed looks up admin's UUID
+with a read-only SQLite probe (`admin_id` from `facility_info.py`) and passes
+`--uuid admin=<id>` to `build_users_csv.py`. Without that UUID, `bulkimportusers` would
+reject a blank-UUID admin row as "Username is duplicated". Users not in `demo/users.csv`
+are left alone.
 
 ## Demo instances only (Koen, 2026-10-16)
 
@@ -135,9 +141,15 @@ Step 7 of `install-demo.sh` (after the channels are imported and the demo is run
 `demo/seed_classwork.py --url http://127.0.0.1:<port>`. It signs in as `teacher1` and uses
 Kolibri's own REST API, i.e. exactly what Coach > Plan does (no `manage shell`, no DB writes):
 
-- one lesson per channel, "<channel> lesson", with every available resource, active for Grade 5;
+- one lesson per IDEA-DEMO channel (Early Reading, Grade 5 Science, Maths), "<channel> lesson",
+  with every available resource, active for Grade 5. A Khan Academy channel is never turned
+  into a lesson. If a leftover **"Khan Academy (English - US curriculum) lesson"** is already
+  in the class (from an earlier seed that included that channel), it is **deleted** rather
+  than hidden: hiding it with `active=false` still leaves it on the Coach Lessons list and
+  in reports such as "Lessons completed 0 of 4";
 - quiz **Grade 5 Practice Quiz**: the questions of the channels' exercises (channel order,
-  max 10), assigned to Grade 5, fixed order, started (active).
+  max 10), assigned to Grade 5, fixed order, started (active). A leftover quiz still titled
+  **IDEA demo quiz** is renamed to this title. The quiz section description uses the same name.
 
 On Kolibri 0.19.x the quiz is created as a DraftExam. Publishing (`draft=False`) converts
 it to an Exam; `active=True` is only allowed on a published Exam (or in the same request
@@ -160,6 +172,19 @@ summary does not already show as Completed for that learner, so a rerun writes n
 `learner4` is re-imported **without** a class on every `provision-demo.sh` run
 (`bulkimportusers` resets class memberships to `users.csv`), so a re-seed puts the demo back
 in its starting state for the ENROLL LEARNERS step. learner1-3 stay in Grade 5.
+
+`admin` stays the device superuser and facility admin created by `provisiondevice`. They are
+also assigned as a class coach of Grade 5. Kolibri 0.19.5's Enroll learners page
+(`LearnerClassEnrollmentPage`) lists facility users who are not members of the class and
+are not already a coach of it (`exclude_member_of` + `exclude_coach_for`; it does **not**
+filter `user_type=learner`). A facility admin with no class coach role therefore appears
+next to learner4. Putting the superuser in a second facility, or as a device user with no
+facility, is not a clean 0.19.5 option: `create_superuser` always creates a `FacilityUser`
+in the provisioned facility, `DevicePermissions` points at that user, and this demo seed
+refuses a device that has any facility other than IDEA Demo School. Assigning admin as a
+class coach is the supported `bulkimportusers` path (`USER_TYPE=ADMIN`, `ASSIGNED_TO=Grade 5`):
+`Classroom.add_coach` grants `role_kinds.COACH` on the class, which `exclude_coach_for`
+honours, and the facility admin role is kept.
 
 ### Content: the export must contain the exercises
 

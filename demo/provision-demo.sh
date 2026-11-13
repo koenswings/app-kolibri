@@ -8,7 +8,9 @@
 #      IDEA Demo School with admin/admin911! and {"learner_can_login_with_no_password": true})
 #   2. kolibri manage bulkimportusers --facility <IDEA Demo School id> users.csv
 #      (class Grade 5, teacher1, teacher2, learner1..3;
-#      learners sign in with their username only; their stored fallback is <account>911!)
+#      admin is assigned as a class coach of Grade 5 so they do not appear on
+#      Facility > Classes > Enroll learners; learners sign in with their
+#      username only; their stored fallback is <account>911!)
 # It never execs into a running server and never uses `kolibri manage shell`.
 #
 # DEMO INSTANCES ONLY (Koen, 2026-10-16): the demo is always its own Kolibri
@@ -27,7 +29,7 @@
 # (via bulkexportusers + build_users_csv.py) updates existing users by UUID with
 # PASSWORD "*" (unchanged) unless --force-passwords resets teacher1/teacher2 and the
 # learners to <account>911! (learners' stored fallback; they sign in username-only).
-# It never deletes users (no --delete).
+# The admin password is never reset. It never deletes users (no --delete).
 set -euo pipefail
 
 IMAGE="${IMAGE:-koenswings/kolibri:1.1-0.19.5}"
@@ -100,13 +102,14 @@ probe() {
     run $DOCKER run --rm --network none -v "$DATA:/root/.kolibri" -v "$HERE:/demo:ro" \
       --entrypoint python3 "$IMAGE" /demo/facility_info.py /root/.kolibri "$FACILITY"
     # dry run: pretend an empty device first, then a created facility
-    PROVISIONED=0; FACILITIES='[]'; FID="${FID+FACILITY_ID}"; return
+    PROVISIONED=0; FACILITIES='[]'; FID="${FID+FACILITY_ID}"; ADMIN_ID=""; return
   fi
   local out; out=$($DOCKER run --rm --network none -v "$DATA:/root/.kolibri" -v "$HERE:/demo:ro" \
       --entrypoint python3 "$IMAGE" /demo/facility_info.py /root/.kolibri "$FACILITY")
   PROVISIONED=$(printf '%s\n' "$out" | sed -n 's/^provisioned=//p')
   FACILITIES=$(printf '%s\n' "$out" | sed -n 's/^facilities=//p')
   FID=$(printf '%s\n' "$out" | sed -n 's/^facility_id=//p')
+  ADMIN_ID=$(printf '%s\n' "$out" | sed -n 's/^admin_id=//p')
 }
 
 # Learners sign in with their username only (learner_can_login_with_no_password).
@@ -138,11 +141,13 @@ else
   probe
 fi
 [ -n "$FID" ] || { echo "ERROR: could not resolve the IDEA Demo School facility id" >&2; exit 4; }
+[ "$DRY" = 1 ] || [ -n "$ADMIN_ID" ] || { echo "ERROR: could not resolve the admin user id (needed because bulkexportusers skips facility admins)" >&2; exit 4; }
 # Always target IDEA Demo School explicitly by id (no --delete).
 # bulkimportusers matches existing users by UUID only: export first, then merge.
 oneshot bulkexportusers --facility "$FID" -O /seed/existing.csv -w
 EXPORT="$WORK/existing.csv"; [ -s "$EXPORT" ] || EXPORT=""
 FP=""; [ "$FORCE" = 1 ] && FP=--force-passwords
-python3 "$HERE/build_users_csv.py" "$HERE/users.csv" $EXPORT "$WORK/users.csv" $FP
+UUIDS=(); [ -n "${ADMIN_ID:-}" ] && UUIDS=(--uuid "admin=$ADMIN_ID")
+python3 "$HERE/build_users_csv.py" "$HERE/users.csv" $EXPORT "$WORK/users.csv" $FP "${UUIDS[@]}"
 oneshot bulkimportusers --facility "$FID" /seed/users.csv
 echo "IDEA demo seed done for $DATA. Start Kolibri again (docker compose start kolibri)."
