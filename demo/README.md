@@ -11,7 +11,7 @@ For demos (an **IDEA-DEMO** disk is docked, or the operator asks for demo mode),
 | Super admin | `admin` / `admin911!` |
 | Class | Grade 5 |
 | Class coaches | `teacher1` / `teacher1911!`, `teacher2` / `teacher2911!` |
-| Learners | `learner1`…`learner3`: sign in with the **username only**; stored fallback `learner1911!`… |
+| Learners | `learner1`…`learner3` (enrolled in Grade 5) and `learner4` (in the school only, **not** enrolled, for the tutorial's ENROLL LEARNERS step): sign in with the **username only**; stored fallback `learner1911!`… |
 
 Every account follows the public IDEA default `<account name>911!`; change it
 before real use. **Learners sign in with their username only** (Koen,
@@ -139,8 +139,57 @@ Kolibri's own REST API, i.e. exactly what Coach > Plan does (no `manage shell`, 
 - quiz **Grade 5 Practice Quiz**: the questions of the channels' exercises (channel order,
   max 10), assigned to Grade 5, fixed order, started (active).
 
-Idempotent (same titles are updated, not duplicated). `--no-classwork` skips it; exit 19 if it fails.
-Exercises come from the channel builder's `*.exercise.json` (IDEA-DEMO disk: Maths + Early Reading).
+On Kolibri 0.19.x the quiz is created as a DraftExam. Publishing (`draft=False`) converts
+it to an Exam; `active=True` is only allowed on a published Exam (or in the same request
+as publish). Questions are sent as a 0.19.x QuizSection, not a flat V2 list. Lesson
+writes use `active` and `assignments` (0.15.5 still accepts `is_active` and
+`lesson_assignments`, which this script also sends).
+
+- prior progress for `learner3` (`--progress-learner`, `--no-progress` skips it), so Coach
+  reports are not empty (tutorial 3.5): signed in **as learner3** (username only), through the
+  same progress API the Learn pages use (`/api/logger/trackprogress/`), in **Maths lesson**:
+  **Fractions practice** completed (one wrong answer, then mastery) and the lesson's first
+  non-exercise resource viewed; then **Grade 5 Practice Quiz** submitted with 7 of 10 right
+  (questions 3, 6 and 9 wrong, so DIFFICULT QUESTIONS has entries).
+
+Idempotent (same titles are updated, not duplicated). A leftover unpublished draft is
+republished on a rerun. Learner progress is only written for an item that Coach's class
+summary does not already show as Completed for that learner, so a rerun writes nothing.
+`--no-classwork` skips it; exit 19 if it fails.
+
+`learner4` is re-imported **without** a class on every `provision-demo.sh` run
+(`bulkimportusers` resets class memberships to `users.csv`), so a re-seed puts the demo back
+in its starting state for the ENROLL LEARNERS step. learner1-3 stay in Grade 5.
+
+### Content: the export must contain the exercises
+
+The quiz and the exercises **Fractions practice**, **Times tables practice** (Maths) and
+**Reading: Rudo and the goat** (Early Reading) come from the channel builder's
+`*.exercise.json` files in `agent-app-dev/demo/idea-demo/static/kolibri/` (agent-app-dev#21,
+idea#294). The channel builder turns them into Kolibri exercises from
+app-kolibri-channel-builder **#9 (70bc14e)** on. The IDEA-DEMO export versions 1 and 2
+(`idea-demo-kolibri-export*.tar`, built with builder `export-language` @71ef311 from a tree
+without them) have **no exercises**, so `seed_classwork.py` stops with "no exercises".
+Use export **version 3** or later: built with builder main (>= 70bc14e, also has the
+language fix #5) from `demo/idea-demo/fetch.sh` output of agent-app-dev main, stick id
+`usb-0425-A7AB` (same channel ids, so it imports as an update of version 2), with the
+version-2 channel databases in the output folder so the version goes 2 -> 3.
+
+### First-visit "Welcome to Kolibri!" window (0.19.5): cannot be turned off in the seed
+
+Kolibri 0.19.5 shows it once per **browser and user**: Learn HOME (learners) and Learn LIBRARY
+(everyone; for a non-learner it says "The first thing you should do is import some channels to
+this device", a 0.19 string fallback marked TODO for 0.20 in `WelcomeModal.vue`). Whether it
+shows is decided only in the browser: `localStorage["DEVICE_WELCOME_MODAL_DISMISSED-<user id>"]`
+(`plugins/learn/frontend/views/HomePage/index.vue`, `LibraryPage/index.vue`,
+`plugins/device/frontend/views/PostSetupModalGroup.vue`). There is no device, facility or user
+setting on the server, so a seed cannot suppress it. Click **CONTINUE** once per user and
+browser, or (screenshot automation) set that key before loading Learn:
+`localStorage.setItem('DEVICE_WELCOME_MODAL_DISMISSED-' + userId, 'true')`, with `userId` the
+`user_id` that the sign-in call `POST /api/auth/session/` returns, then **reload** the page (Kolibri
+reads it when the page loads; a hash-only navigation keeps the window). Checked on the box with
+0.19.5: without the key the window shows for learner2 (HOME) and teacher2 (LIBRARY, "import some
+channels"); with the key and a reload it does not.
 
 ## Tests
 

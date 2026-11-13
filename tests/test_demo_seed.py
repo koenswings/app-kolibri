@@ -29,15 +29,19 @@ class UsersCsv(unittest.TestCase):
 
     def test_accounts_and_passwords(self):
         names = [r["USERNAME"] for r in self.rows]
-        self.assertEqual(names, ["teacher1", "teacher2", "learner1", "learner2", "learner3"])
+        self.assertEqual(names, ["teacher1", "teacher2", "learner1", "learner2", "learner3", "learner4"])
         for r in self.rows:  # learners too: stored fallback <account>911!
             self.assertEqual(r["PASSWORD"], r["USERNAME"] + "911!")
 
     def test_roles_and_class(self):
         for t in self.rows[:2]:  # teacher1, teacher2: coaches of Grade 5
             self.assertEqual((t["USER_TYPE"], t["ASSIGNED_TO"], t["ENROLLED_IN"]), ("CLASS_COACH", "Grade 5", ""))
-        for r in self.rows[2:]:
+        for r in self.rows[2:5]:  # learner1-3: enrolled in Grade 5
             self.assertEqual((r["USER_TYPE"], r["ENROLLED_IN"], r["ASSIGNED_TO"]), ("LEARNER", "Grade 5", ""))
+        # learner4: in IDEA Demo School only, NOT enrolled, so the tutorial can show ENROLL LEARNERS (3.3)
+        self.assertEqual((self.rows[5]["USERNAME"], self.rows[5]["USER_TYPE"], self.rows[5]["ENROLLED_IN"],
+                          self.rows[5]["ASSIGNED_TO"]), ("learner4", "LEARNER", "", ""))
+        for r in self.rows:
             self.assertIn(r["USER_TYPE"], ("LEARNER", "ADMIN", "FACILITY_COACH", "CLASS_COACH"))
 
     def test_no_uuid_in_template(self):
@@ -58,7 +62,7 @@ class Build(unittest.TestCase):
     def test_fresh_device(self):
         out = {r["USERNAME"]: r for r in b.build(self.desired, [])}
         self.assertTrue(all(r["UUID"] == "" for r in out.values()))
-        for n in ("teacher1", "teacher2", "learner1", "learner2", "learner3"):
+        for n in ("teacher1", "teacher2", "learner1", "learner2", "learner3", "learner4"):
             self.assertEqual(out[n]["PASSWORD"], n + "911!")
         self.assertFalse(any("nopw" in r["PASSWORD"] for r in out.values()))
 
@@ -94,7 +98,7 @@ class Build(unittest.TestCase):
         out = os.path.join(self.tmp, "o.csv")
         self.assertEqual(b.main([USERS, self.export, out]), 0)
         rows = b.read_rows(out)
-        self.assertEqual(len(rows), 5)
+        self.assertEqual(len(rows), 6)
         with open(out) as f:
             self.assertEqual(next(csv.reader(f)), b.FIELDS)
 

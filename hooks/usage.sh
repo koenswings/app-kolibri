@@ -32,7 +32,7 @@ SEED_LEARNER_USERNAMES = ("learner3",)
 # inside the hook only; never written to stdout.
 SEED_ADMIN = frozenset(("admin",))
 SEED_TEACHER = frozenset(("teacher1", "teacher2"))
-SEED_LEARNER = frozenset(("learner1", "learner2", "learner3"))
+SEED_LEARNER = frozenset(("learner1", "learner2", "learner3", "learner4"))
 ROLE_COACH = frozenset(("coach", "classroom assignable coach", "classroom_assignable_coach"))
 
 KNOWN_USER = ("kolibriauth_facilityuser",)

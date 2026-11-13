@@ -49,7 +49,9 @@ def do_exercise(api, node):
     mm = meta["mastery_model"]
     if isinstance(mm, str):
         mm = json.loads(mm)
-    s = api.call("POST", "/api/logger/trackprogress/", dict(node_id=node["id"]))
+    s = api.call("POST", "/api/logger/trackprogress/", dict(  # 0.19.5 needs kind/content/channel/mastery
+        node_id=node["id"], content_id=node["content_id"], channel_id=node["channel_id"],
+        kind="exercise", mastery_model=mm))
     ok(s.get("mastery_criterion", {}).get("type") == mm["type"],
        "exercise %r: session started with mastery %s" % (node["title"], mm))
     answers, out = [], None
@@ -79,11 +81,11 @@ def main(argv=None):
     ok(me["kind"] == ["learner"], "%s signs in with username only" % a.learner)
     rooms = [c for c in L.get("/learn/api/learnerclassroom/") if c["name"] == a.klass]
     ok(len(rooms) == 1, "%s is in %s" % (a.learner, a.klass))
-    asg = rooms[0]["assignments"]
+    asg = rooms[0].get("assignments") or rooms[0]  # 0.15.5: under "assignments"; 0.19.5: top level
     quizzes = [e for e in asg["exams"] if e["title"] == sc.QUIZ_TITLE]
     ok(len(quizzes) == 1 and quizzes[0]["active"], "learner sees active quiz %r" % sc.QUIZ_TITLE)
     lessons = asg["lessons"]
-    ok(len(lessons) >= 1 and all(l["is_active"] for l in lessons),
+    ok(len(lessons) >= 1 and all(l.get("is_active", l.get("active")) for l in lessons),
        "learner sees %d active lesson(s): %s" % (len(lessons), ", ".join(l["title"] for l in lessons)))
 
     exercises = []
@@ -113,7 +115,8 @@ def main(argv=None):
     except SystemExit:
         full = T.get("/api/exams/exam/%s/" % q["id"])
     s = L.call("POST", "/api/logger/trackprogress/", dict(quiz_id=q["id"]))
-    srcs = full["question_sources"]
+    srcs = sc.flatten_questions(full["question_sources"])
+    ok(srcs, "quiz has questions after flatten (V3 sections or V2 list)")
     for k, src in enumerate(srcs, 1):
         out = L.call("PUT", "/api/logger/trackprogress/%s/" % s["session_id"], dict(
             progress=k / float(len(srcs)), time_spent_delta=5,
