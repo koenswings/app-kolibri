@@ -85,8 +85,18 @@ if [ "$DRY" != 1 ]; then
   done
 fi
 
-WORK="$(mktemp -d)"; chmod 777 "$WORK"
-trap 'rm -rf "$WORK"' EXIT
+# engine#374: scratch lives under the instance (or next to the data dir on a
+# manual run), never a default mktemp in /tmp. The trap removes WORK and the
+# empty .demo-seed-tmp parent afterwards.
+if [ -n "${IDEA_DEMO_INSTANCE_DIR:-}" ]; then
+  WORK_PARENT="${IDEA_DEMO_INSTANCE_DIR}"
+else
+  WORK_PARENT="$(dirname "$DATA")"
+fi
+mkdir -p "$WORK_PARENT/.demo-seed-tmp"
+WORK="$(mktemp -d "$WORK_PARENT/.demo-seed-tmp/w.XXXXXX")"
+chmod 777 "$WORK"
+trap 'rm -rf "$WORK"; rmdir "$WORK_PARENT/.demo-seed-tmp" 2>/dev/null || true' EXIT
 
 oneshot() {
   run $DOCKER run --rm --network none -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HOME=/root/.kolibri \

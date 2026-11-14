@@ -69,7 +69,7 @@ engine() {  # engine list|disks|send "<command>"
   if [ -n "${ENGINE_CMD:-}" ]; then $ENGINE_CMD "$@"; return; fi
   # engine-cmd.mjs needs the Engine's node_modules: run it from a temp dir that links them.
   if [ -z "${EC_DIR:-}" ]; then
-    EC_DIR="$(mktemp -d)"; trap 'rm -rf "$EC_DIR"' EXIT
+    EC_DIR="$(mktemp -d "${TMPDIR:-/var/tmp}/kolibri-engine-cmd.XXXXXX")"; trap 'rm -rf "$EC_DIR"' EXIT
     cp "$HERE/engine-cmd.mjs" "$EC_DIR/"; ln -s "$ENGINE_DIR/node_modules" "$EC_DIR/node_modules"
   fi
   (cd "$EC_DIR" && node engine-cmd.mjs "$ENGINE_DIR" "$@")
@@ -236,8 +236,10 @@ main() {
     [ "$(compose_name "$inst")" = "$DEMO_NAME" ] || die 11 "refusing $id: compose x-app.instanceName is '$(compose_name "$inst")', not '$DEMO_NAME'"
   fi
   send "stopInstance $id $disk" || die 14 "stopInstance Failed"
+  mkdir -p "$data"
   wait_stopped "$data" || die 14 "Kolibri of $id still running after stopInstance"
   local rc=0
+  IDEA_DEMO_INSTANCE_DIR="${IDEA_DEMO_INSTANCE_DIR:-$inst}"
   ${PROVISION:-"$HERE/provision-demo.sh"} --demo-instance "${FORCE[@]}" $([ "$DRY" = 1 ] && echo --dry-run) "$data" || rc=15
   if [ $rc = 0 ] && [ "$NOCH" = 0 ]; then
     # Manual --channels TAR extracts into the instance pack dir, never /tmp (engine#369).

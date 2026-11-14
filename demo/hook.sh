@@ -69,6 +69,7 @@ step_seed() {
   mkdir -p "$IDEA_DEMO_PACK_DIR"
   extract_pack_if_needed
   local data; data="$(data_dir)"
+  mkdir -p "$data"
   echo "+ provision-demo.sh --demo-instance $data" >&2
   ${PROVISION:-"$HERE/provision-demo.sh"} --demo-instance $([ "${DRY:-0}" = 1 ] && echo --dry-run) "$data"
   # import_channels reads IDEA_DEMO_PACK_DIR (CHANNELS unset)

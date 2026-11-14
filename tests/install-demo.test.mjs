@@ -2,7 +2,7 @@
 // Run: node --test tests/
 import { it } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -36,6 +36,16 @@ it('installs a new instance named exactly "Kolibri Demo" (quoted --name) and see
   assert.equal(r.prov.trim(), `--demo-instance ${join(dir, 'disks/sdb1/instances/kolibri-demo/data/kolibri')}`)
   assert.match(r.stdout.trim().split('\n').pop(), /"result":"installed","id":"kolibri-demo","name":"Kolibri Demo"/)
   assert.equal(snapshot(r.st.instances[0]), snapshot(school), 'the school instance is untouched')
+})
+
+it('creates a missing data/kolibri before provision (engine#374)', () => {
+  const { run, dir } = setup()
+  const data = join(dir, 'disks/sdb1/instances/kolibri-demo/data/kolibri')
+  assert.equal(existsSync(data), false)
+  const r = run()
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(existsSync(data), true)
+  assert.equal(r.prov.trim(), `--demo-instance ${data}`)
 })
 
 it('name parsing: an Engine that drops the quoted name fails closed (exit 13), nothing seeded', () => {
