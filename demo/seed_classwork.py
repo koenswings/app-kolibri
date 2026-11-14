@@ -7,7 +7,10 @@ no database writes from outside Kolibri). Python 3 stdlib only.
 
 Creates in class "Grade 5" of IDEA Demo School:
   * one lesson per IDEA-DEMO channel (Early Reading, Grade 5 Science, Maths; --channel) ("<channel> lesson"): every available
-    resource of the channel, in channel order, active (visible to Grade 5);
+    resource of the channel, in channel order, active (visible to Grade 5).
+    A Khan Academy channel is never turned into a lesson, even if passed in
+    --channel. A leftover "Khan Academy … lesson" in the class is deleted
+    (not just hidden), so Coach Lessons and "Lessons completed" show 3, not 4;
   * one quiz "Grade 5 Practice Quiz": the questions of every exercise in the
     channels (in channel order, at most --max-questions), assigned to Grade 5,
     fixed order, and started (active), so learners see it under Classes > Grade 5
@@ -20,7 +23,8 @@ Creates in class "Grade 5" of IDEA Demo School:
     tracking API the Learn page uses (/api/logger/trackprogress/). --no-progress skips it.
 
 Idempotent: an existing lesson/quiz with the same title in Grade 5 is updated
-(resources / active) instead of duplicated. A quiz that learners already
+(resources / active) instead of duplicated. A leftover quiz still titled
+"IDEA demo quiz" is renamed to "Grade 5 Practice Quiz". A quiz that learners already
 answered keeps its questions (Kolibri forbids changing them); it is only made
 active again. Learner progress is only written for an item the Coach class
 summary does not already show as Completed for that learner, so a rerun writes
@@ -48,6 +52,8 @@ import urllib.request
 
 FACILITY = "IDEA Demo School"
 QUIZ_TITLE = "Grade 5 Practice Quiz"
+# Earlier seeds (and the quiz section description) used this title; a rerun renames it.
+OLD_QUIZ_TITLES = ("IDEA demo quiz",)
 # The IDEA-DEMO channels (by name). Other channels on the device (e.g. Khan Academy) are ignored.
 DEMO_CHANNELS = ("Early Reading", "Grade 5 Science", "Maths")
 QUIZ_SECTION_TITLE = "Grade 5 Practice"
@@ -132,6 +138,30 @@ def lesson_payload(cid, me, title, resources):
     )
 
 
+def is_khan_channel(name):
+    return (name or "").startswith("Khan Academy")
+
+
+def is_khan_lesson(title):
+    """The leftover 4th demo lesson is titled e.g. 'Khan Academy (English - US curriculum) lesson'."""
+    title = title or ""
+    return title.startswith("Khan Academy") and title.endswith(" lesson")
+
+
+def delete_khan_lessons(api, cid, dry):
+    """Remove leftover Khan Academy lessons so Coach does not count them (hide is not enough)."""
+    out = []
+    for lesson in api.get("/api/lessons/lesson/", collection=cid):
+        if not is_khan_lesson(lesson.get("title")):
+            continue
+        if dry:
+            out.append(dict(id=lesson.get("id"), title=lesson["title"], action="dry-run-delete"))
+            continue
+        api.call("DELETE", "/api/lessons/lesson/%s/" % lesson["id"])
+        out.append(dict(id=lesson["id"], title=lesson["title"], action="deleted"))
+    return out
+
+
 def upsert_lesson(api, cid, me, title, resources, dry):
     want = lesson_payload(cid, me, title, resources)
     old = [l for l in api.get("/api/lessons/lesson/", collection=cid) if l["title"] == title]
@@ -161,7 +191,7 @@ def quiz_sections(sources, fixed_order=True):
     """Wrap a V2 question list as a single Kolibri 0.19.x QuizSection."""
     return [dict(
         section_title=QUIZ_SECTION_TITLE,
-        description="IDEA demo quiz",
+        description=QUIZ_TITLE,
         questions=list(sources),
         learners_see_fixed_order=fixed_order,
     )]
@@ -205,24 +235,29 @@ def upsert_quiz(api, cid, me, sources, dry):
     if not sources:
         raise SystemExit("ERROR: no exercises with questions found on this device; build the demo channels with exercises first")
     sections = quiz_sections(sources, fixed_order=True)
-    old = [e for e in api.get("/api/exams/exam/", collection=cid) if e["title"] == QUIZ_TITLE]
+    exams = api.get("/api/exams/exam/", collection=cid)
+    old = [e for e in exams if e["title"] == QUIZ_TITLE]
+    if not old:
+        old = [e for e in exams if e["title"] in OLD_QUIZ_TITLES]
     if dry:
         return dict(title=QUIZ_TITLE, questions=len(sources), action="dry-run")
     if old:
         e = old[0]
+        rename = dict(title=QUIZ_TITLE) if e.get("title") != QUIZ_TITLE else {}
         if is_draft_exam(e):
             # Questions cannot be changed in the same request as publish (0.19.5 serializer).
             if (not is_v3_sections(e.get("question_sources"))
                     or question_pairs(e.get("question_sources")) != question_pairs(sections)):
                 api.call("PATCH", "/api/exams/exam/%s/" % e["id"],
-                         dict(question_sources=sections))
+                         dict(question_sources=sections, **rename))
+                rename = {}
             # Publish DraftExam -> Exam and start it, assigned to the class.
             r = api.call("PATCH", "/api/exams/exam/%s/" % e["id"],
-                         dict(draft=False, active=True, archive=False, assignments=[cid]))
+                         dict(draft=False, active=True, archive=False, assignments=[cid], **rename))
             return dict(id=r["id"], title=QUIZ_TITLE, questions=len(sources), action="updated")
         # Already a published Exam: Kolibri forbids changing questions; keep them and re-activate.
         r = api.call("PATCH", "/api/exams/exam/%s/" % e["id"],
-                     dict(active=True, archive=False, assignments=[cid]))
+                     dict(active=True, archive=False, assignments=[cid], **rename))
         return dict(id=r.get("id", e["id"]), title=QUIZ_TITLE, questions=len(sources), action="updated")
     # Create already published and started (draft=False allows active=True on create).
     r = api.call("POST", "/api/exams/exam/", dict(
@@ -395,19 +430,22 @@ def main(argv=None):
                       key=lambda c: c["name"])
     lessons, exercises, nodes_by_lesson = [], [], {}
     for ch in channels:
+        if is_khan_channel(ch.get("name")):
+            continue
         res = tree(api, ch)
         exercises += [n for n in res if n["kind"] == "exercise"]
         if res and not a.no_lessons:
             l = upsert_lesson(api, cid, me, "%s lesson" % ch["name"], res, a.dry_run)
             lessons.append(l)
             nodes_by_lesson[l.get("id")] = res
+    retired = delete_khan_lessons(api, cid, a.dry_run)
     quiz = upsert_quiz(api, cid, me, quiz_sources(exercises, a.max_questions), a.dry_run)
     progress = None
     if not a.no_progress and not a.no_lessons:
         progress = seed_progress(api, a.url, cid, a.progress_learner,
                                  {l["title"]: l for l in lessons}, quiz.get("id"), nodes_by_lesson, a.dry_run)
     print(json.dumps(dict(result="ok", classroom=cid, lessons=lessons, quiz=quiz,
-                          exercises=len(exercises), progress=progress)))
+                          exercises=len(exercises), progress=progress, retired=retired)))
     return 0
 
 

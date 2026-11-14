@@ -85,8 +85,10 @@ def main(argv=None):
     quizzes = [e for e in asg["exams"] if e["title"] == sc.QUIZ_TITLE]
     ok(len(quizzes) == 1 and quizzes[0]["active"], "learner sees active quiz %r" % sc.QUIZ_TITLE)
     lessons = asg["lessons"]
-    ok(len(lessons) >= 1 and all(l.get("is_active", l.get("active")) for l in lessons),
-       "learner sees %d active lesson(s): %s" % (len(lessons), ", ".join(l["title"] for l in lessons)))
+    titles = [l["title"] for l in lessons]
+    ok(len(lessons) == 3 and all(l.get("is_active", l.get("active")) for l in lessons),
+       "learner sees 3 active lessons: %s" % ", ".join(titles))
+    ok(not any(sc.is_khan_lesson(t) for t in titles), "learner does not see a Khan Academy lesson")
 
     exercises = []
     for ch in [c for c in L.get("/api/content/channel/", available="true") if c["name"] in sc.DEMO_CHANNELS]:
@@ -138,6 +140,22 @@ def main(argv=None):
            and x["content_id"] == exercises[0]["content_id"]]
     ok(cst and cst[0]["status"] == "Completed",
        "teacher1 sees %s's exercise %r: %s" % (a.learner, exercises[0]["title"], cst and cst[0]["status"]))
+    summ_lessons = summ.get("lessons") or []
+    ok(len(summ_lessons) == 3, "Coach class summary has 3 lessons (not a hidden 4th): %s"
+       % [l["title"] for l in summ_lessons])
+    ok(not any(sc.is_khan_lesson(l.get("title")) for l in summ_lessons),
+       "Coach class summary has no Khan Academy lesson")
+
+    # Same query as 0.19.5 LearnerClassEnrollmentPage (member_of facility,
+    # exclude_member_of + exclude_coach_for the class; no user_type=learner filter).
+    # Signed in as admin, the user who opens Facility > Classes > Enroll learners.
+    A = sc.Api(a.url)
+    sc.login(A, "admin", "admin911!")
+    enroll = A.get("/api/auth/facilityuser/", member_of=fid, exclude_member_of=cid, exclude_coach_for=cid)
+    enroll_names = sorted(u["username"] for u in enroll)
+    ok("admin" not in enroll_names, "admin is not on the Enroll learners list (%s)" % enroll_names)
+    ok("learner4" in enroll_names, "learner4 is on the Enroll learners list (%s)" % enroll_names)
+
     print(json.dumps(dict(result="pass", checks=len(CHECKS), quiz=exams[0]["id"], classroom=cid)))
     return 0
 

@@ -35,6 +35,8 @@ class QuizSections(unittest.TestCase):
         sections = sc.quiz_sections(sources, fixed_order=True)
         self.assertEqual(len(sections), 1)
         self.assertEqual(sections[0]["section_title"], sc.QUIZ_SECTION_TITLE)
+        self.assertEqual(sections[0]["description"], sc.QUIZ_TITLE)
+        self.assertNotEqual(sections[0]["description"], "IDEA demo quiz")
         self.assertTrue(sections[0]["learners_see_fixed_order"])
         self.assertEqual(sections[0]["questions"], sources)
 
@@ -153,6 +155,66 @@ class UpsertQuizRequests(unittest.TestCase):
         self.assertEqual(calls[0][2], dict(active=True, archive=False, assignments=["classid"]))
         self.assertNotIn("question_sources", calls[0][2])
         self.assertNotIn("draft", calls[0][2])
+
+
+
+    def test_old_title_is_renamed(self):
+        calls = []
+
+        class FakeApi(object):
+            def get(self, path, **q):
+                return [dict(id="e" * 32, title="IDEA demo quiz", draft=False, active=True,
+                             question_sources=sc.quiz_sections(self_sources), assignments=["classid"])]
+
+            def call(self, method, path, body=None, query=None):
+                calls.append((method, path, body))
+                return dict(id="e" * 32, draft=False, active=True, title=sc.QUIZ_TITLE)
+
+        self_sources = self._sources()
+        out = sc.upsert_quiz(FakeApi(), "classid", dict(user_id="u"), self_sources, False)
+        self.assertEqual(out["title"], sc.QUIZ_TITLE)
+        self.assertEqual(calls[0][2]["title"], sc.QUIZ_TITLE)
+        self.assertEqual(calls[0][2]["active"], True)
+
+
+class KhanLessons(unittest.TestCase):
+    def test_detects_khan_channel_and_lesson(self):
+        self.assertTrue(sc.is_khan_channel("Khan Academy (English - US curriculum)"))
+        self.assertFalse(sc.is_khan_channel("Maths"))
+        self.assertTrue(sc.is_khan_lesson("Khan Academy (English - US curriculum) lesson"))
+        self.assertFalse(sc.is_khan_lesson("Maths lesson"))
+        self.assertFalse(sc.is_khan_lesson("Khan Academy"))
+
+    def test_deletes_leftover_khan_lesson_only(self):
+        calls = []
+
+        class FakeApi(object):
+            def get(self, path, **q):
+                return [
+                    dict(id="keep", title="Maths lesson", active=True),
+                    dict(id="75cac426abcd", title="Khan Academy (English - US curriculum) lesson", active=False),
+                ]
+
+            def call(self, method, path, body=None, query=None):
+                calls.append((method, path, body))
+                return None
+
+        out = sc.delete_khan_lessons(FakeApi(), "classid", False)
+        self.assertEqual(out, [dict(id="75cac426abcd",
+                                    title="Khan Academy (English - US curriculum) lesson",
+                                    action="deleted")])
+        self.assertEqual(calls, [("DELETE", "/api/lessons/lesson/75cac426abcd/", None)])
+
+    def test_dry_run_does_not_delete(self):
+        class FakeApi(object):
+            def get(self, path, **q):
+                return [dict(id="x", title="Khan Academy (English - US curriculum) lesson", active=False)]
+
+            def call(self, method, path, body=None, query=None):
+                raise AssertionError("no writes on dry-run")
+
+        out = sc.delete_khan_lessons(FakeApi(), "classid", True)
+        self.assertEqual(out[0]["action"], "dry-run-delete")
 
 
 class ProgressPlan(unittest.TestCase):

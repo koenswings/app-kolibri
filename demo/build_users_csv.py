@@ -12,6 +12,7 @@ setting learner_can_login_with_no_password is on. They still get the stored
 fallback password <account>911! (learner1911!, ...), which only matters if a
 school turns that setting off. Every account follows the <account>911! rule.
 Usage: build_users_csv.py DESIRED.csv [EXPORT.csv] OUT.csv [--force-passwords]
+         [--uuid USERNAME=UUID ...]
 """
 import csv
 import re
@@ -38,8 +39,13 @@ def password_ok(username, password):
     return password == username + "911!"
 
 
-def build(desired, existing, force_passwords=False):
+def build(desired, existing, force_passwords=False, extra_uuids=None):
     uuids = {r["USERNAME"].lower(): r.get("UUID", "") for r in existing if r.get("USERNAME")}
+    # bulkexportusers skips facility admins (kind == ADMIN). The provision
+    # probe supplies that UUID so the existing superuser can be updated.
+    for name, uuid in (extra_uuids or {}).items():
+        if name and uuid:
+            uuids.setdefault(name.lower(), uuid)
     out = []
     for r in desired:
         if not password_ok(r["USERNAME"], r["PASSWORD"]):
@@ -47,7 +53,8 @@ def build(desired, existing, force_passwords=False):
         row = {k: r.get(k, "") for k in FIELDS}
         uuid = uuids.get(r["USERNAME"].lower(), "")
         row["UUID"] = uuid
-        if uuid and not force_passwords:
+        # --force-passwords resets teachers and learners; the admin is never reset.
+        if uuid and (not force_passwords or r["USERNAME"].lower() == "admin"):
             row["PASSWORD"] = "*"
         out.append(row)
     return out
@@ -60,9 +67,28 @@ def write(rows, path):
         w.writerows(rows)
 
 
+def parse_uuid_flags(argv):
+    """Pull --uuid USERNAME=UUID pairs out of argv; return (argv_without, {name: uuid})."""
+    extra, out = {}, []
+    it = iter(argv)
+    for a in it:
+        if a == "--uuid":
+            try:
+                item = next(it)
+            except StopIteration:
+                raise SystemExit("ERROR: --uuid needs USERNAME=UUID")
+            if "=" not in item:
+                raise SystemExit("ERROR: --uuid needs USERNAME=UUID (got %r)" % item)
+            name, uuid = item.split("=", 1)
+            extra[name.strip()] = uuid.strip()
+        else:
+            out.append(a)
+    return out, extra
+
+
 def main(argv):
     force = "--force-passwords" in argv
-    args = [a for a in argv if a != "--force-passwords"]
+    args, extra = parse_uuid_flags([a for a in argv if a != "--force-passwords"])
     if len(args) == 2:
         desired, export, out = args[0], None, args[1]
     elif len(args) == 3:
@@ -71,7 +97,7 @@ def main(argv):
         sys.stderr.write(__doc__)
         return 2
     existing = read_rows(export) if export else []
-    write(build(read_rows(desired), existing, force), out)
+    write(build(read_rows(desired), existing, force, extra), out)
     return 0
 
 
