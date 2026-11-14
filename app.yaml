@@ -35,7 +35,7 @@ demo:
   pack:
     file: idea-demo-kolibri-v4.tar
     url: https://github.com/koenswings/app-kolibri/releases/download/idea-demo-kolibri-v4/idea-demo-kolibri-v4.tar
-    sha256: "1b12bee0b6d2dcfc21f48b90726207cb9b623ec7a86275329cf739854155a24c"
+    sha256: "4675019f2c2a77d34b055788aeb5025c73c42ffe6f91dca55cdaa2213f414b23"
     bytes: 192430080
     minVersion: 3
   reserveBytes: 300000000
