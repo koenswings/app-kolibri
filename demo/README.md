@@ -222,7 +222,7 @@ channels"); with the key and a reload it does not.
 node --test tests/                  # includes install-demo.test.mjs (mocked Engine queue)
 python3 -m unittest discover -s tests -p 'test_*.py'   # CSV + script logic
 tests/demo-seed-integration.sh                          # throwaway Kolibri container ($IMAGE, default 0.19.5)
-tests/classwork_check.py --url http://127.0.0.1:PORT    # TEST instance only: learner1 does an exercise + the quiz, teacher1 sees progress
+tests/classwork_check.py --url http://127.0.0.1:PORT    # TEST instance only: learner1 does an exercise + the quiz, teacher1 sees progress. Refuses kid-kolibri-demo (ports 18090/18091 or a container/instance name containing that id).
 ```
 
 Content: `agent-app-dev/demo/idea-demo/` (publisher sources, checksums and credits).

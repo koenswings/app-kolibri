@@ -10,15 +10,125 @@ summary shows learner1's exercise and quiz as completed.
 Usage: classwork_check.py --url http://127.0.0.1:PORT [--learner learner1]
 Prints PASS lines and a final JSON line; exit 1 on the first failure.
 Only for a throwaway/test demo instance: it records learner progress.
+Refuses the live idea03 demo (instance or container name containing
+kid-kolibri-demo, or ports 18090/18091). Override only with
+KOLIBRI_CHECK_I_KNOW_THIS_IS_NOT_THE_DEMO=1.
 """
 import argparse
 import io
 import json
+import os
+import subprocess
 import sys
 import zipfile
+from urllib.parse import urlparse
 
 sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__file__), "..", "demo"))
 import seed_classwork as sc  # noqa: E402
+
+LIVE_DEMO_NAME = "kid-kolibri-demo"
+LIVE_DEMO_PORTS = frozenset((18090, 18091))
+OVERRIDE_ENV = "KOLIBRI_CHECK_I_KNOW_THIS_IS_NOT_THE_DEMO"
+
+
+def url_port(url):
+    p = urlparse(url)
+    if p.port:
+        return p.port
+    if p.scheme == "https":
+        return 443
+    if p.scheme == "http":
+        return 80
+    return None
+
+
+def _has_live_demo_name(value):
+    return bool(value) and LIVE_DEMO_NAME in value.lower()
+
+
+def names_from_docker_ps(output, port):
+    """Container names from `docker ps --format '{{.Names}}\t{{.Ports}}'` that publish port."""
+    if not port or not output:
+        return []
+    token = ":%s->" % port
+    names = []
+    for line in output.splitlines():
+        name, sep, ports = line.partition("\t")
+        if sep and token in ports:
+            names.append(name)
+    return names
+
+
+def docker_names_publishing(url):
+    """Best-effort: names of running containers that publish this URL's port."""
+    port = url_port(url)
+    if not port:
+        return []
+    try:
+        out = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}\t{{.Ports}}"],
+            capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if out.returncode != 0:
+        return []
+    return names_from_docker_ps(out.stdout, port)
+
+
+def live_demo_reasons(url, container=None, environ=None, docker_names=None):
+    """Why this target looks like the live kid-kolibri-demo, or an empty list.
+
+    Facility name is not used: throwaway test instances are also seeded as
+    'IDEA Demo School'. The live demo is identified by instance name and ports.
+    """
+    env = os.environ if environ is None else environ
+    reasons = []
+    port = url_port(url)
+    if port in LIVE_DEMO_PORTS:
+        reasons.append("port %s is reserved for the live %s instance" % (port, LIVE_DEMO_NAME))
+    p = urlparse(url)
+    if _has_live_demo_name(p.hostname) or _has_live_demo_name(url):
+        reasons.append("URL %r contains %s" % (url, LIVE_DEMO_NAME))
+    names = []
+    if container:
+        names.append(("container", container))
+    for key in ("COMPOSE_PROJECT_NAME", "IDEA_INSTANCE_ID", "KOLIBRI_CONTAINER"):
+        val = env.get(key)
+        if val:
+            names.append((key, val))
+    if docker_names is None:
+        docker_names = docker_names_publishing(url)
+    for n in docker_names:
+        names.append(("docker container", n))
+    seen = set()
+    for label, value in names:
+        if value in seen:
+            continue
+        seen.add(value)
+        if _has_live_demo_name(value):
+            reasons.append("%s %r is or contains %s" % (label, value, LIVE_DEMO_NAME))
+    return reasons
+
+
+def guard_live_demo(url, container=None, environ=None, docker_names=None):
+    """Exit 2 if the target is the live demo, unless the override env is 1."""
+    env = os.environ if environ is None else environ
+    if env.get(OVERRIDE_ENV) == "1":
+        return
+    reasons = live_demo_reasons(url, container=container, environ=env,
+                                docker_names=docker_names)
+    if not reasons:
+        return
+    sys.stderr.write(
+        "REFUSED: classwork_check.py records learner progress and must not run "
+        "against the live demo %s.\n" % LIVE_DEMO_NAME)
+    for r in reasons:
+        sys.stderr.write("  - %s\n" % r)
+    sys.stderr.write(
+        "Only use a throwaway test instance. If you are sure this is not the "
+        "live demo, set %s=1.\n" % OVERRIDE_ENV)
+    raise SystemExit(2)
+
 
 CHECKS = []
 
@@ -74,7 +184,10 @@ def main(argv=None):
     ap.add_argument("--url", required=True)
     ap.add_argument("--learner", default="learner1")
     ap.add_argument("--class", dest="klass", default="Grade 5")
+    ap.add_argument("--container", default=None,
+                    help="optional container or instance name, used by the live-demo guard")
     a = ap.parse_args(argv)
+    guard_live_demo(a.url, container=a.container)
 
     L = sc.Api(a.url)
     fid, me = sc.login(L, a.learner, "")
