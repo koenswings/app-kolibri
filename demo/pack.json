@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "packVersion": 4,
+  "app": "kolibri",
+  "minAppVersion": "1.2-0.19.5",
+  "bytes": 192359769,
+  "credits": "CREDITS.txt",
+  "hooks": [
+    {
+      "id": "seed",
+      "needs": "stopped"
+    },
+    {
+      "id": "classwork",
+      "needs": "running"
+    }
+  ],
+  "files": [
+    {
+      "path": "CREDITS.txt",
+      "sha256": "ee7eb1a36f9666280301a2f052e330508d72020567553cbf5fd78d1ecf518d64",
+      "bytes": 16837
+    },
+    {
+      "path": "KOLIBRI_DATA/content/databases/45fc46386f76517bb3e86fb3cb235ad9.sqlite3",
+      "sha256": "f788668c3b03ac8f7c19fb443f641c1d4451e998f4d9ba914ca9e6d1734fc2b4",
+      "bytes": 208896
+    },
+    {
+      "path": "KOLIBRI_DATA/content/databases/54c4d96f29e751668f276109eebe68c6.sqlite3",
+      "sha256": "91589a073d5f555722f3a5dddbaf56b181002895b1a4080d709c40cc389a33e4",
+      "bytes": 208896
+    },
+    {
+      "path": "KOLIBRI_DATA/content/databases/6dc027c8b780532a9a9d16fd7a3a008a.sqlite3",
+      "sha256": "748b6ac9e340512881d6a15f4922ddf396782465faa68637b828d284f81a1b88",
+      "bytes": 208896
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/0/1/01f3228b337e9fdfd0786214eab1295a.pdf",
+      "sha256": "8272ce8d7c1d5f85775935a3f34a721a1e645726f81d20543156d71ad7308ecd",
+      "bytes": 137609
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/1/5/159ace0ff5a5915f09db86a69539bfd3.mp4",
+      "sha256": "e218c67fb46b786cf4f479cef0fab5474c0cf3e2455b0f17d2f49d18ea38b193",
+      "bytes": 5107137
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/1/5/15ba6dda967c4c4baeb5dcfaf9aae802.pdf",
+      "sha256": "8c39db3dba79556f36762eac1e1611b591305a9fa32a62c42a290df1581c9b2c",
+      "bytes": 32148840
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/1/c/1c315495f8a1738b7a657d93e883086a.zip",
+      "sha256": "3f876664ad2d0ef1de6180db7f87ba20e711e965b3a8e0b73dcc82b2797749f5",
+      "bytes": 65825
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/2/4/24790f50bacfaefd5250e4ce5ad88453.perseus",
+      "sha256": "b6f9f2def06177946a173e3687fe7c1c0d2a18b1582a151e2b375d7b7837ff32",
+      "bytes": 5834
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/2/8/289033e8557211185ee30d228e1a56ee.pdf",
+      "sha256": "0305624f7b8a11b8e577024e8e011a0b22a9080e13e2c6edc98517e667506494",
+      "bytes": 485667
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/2/f/2fc37925e12f682171df9e02ef8d42d5.epub",
+      "sha256": "48f0d1027ea9e12abceb1aeca17372c9ddd7357c35e23f0d8c001a0a7901322a",
+      "bytes": 40926007
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/3/2/3293415874e848013138d4a9a30b342b.perseus",
+      "sha256": "74f342ac15cf844b1146fadf10b442a4a260ee52d8f99c16d5c743fec7430710",
+      "bytes": 6336
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/3/b/3b00095bbbc5d1906c6b31dbdc069345.mp4",
+      "sha256": "50abe588edf722c2b536b3f7c456ad3af924fd9d6d53b78e67962af78c4045e0",
+      "bytes": 3939592
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/4/a/4ac178137a1710a118adfa9daa0fdec4.mp4",
+      "sha256": "84201ed626ca75f595d250c287a29dd5fcee14f95593730bf0a37552bb5749b9",
+      "bytes": 5278571
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/5/4/54bcdd9e30a133088cc5a8dbafad3735.zip",
+      "sha256": "82465ec5f3bb6e0eff86e52b46567b0959f07c51bed8d7eff03674d99e55ee14",
+      "bytes": 20219
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/6/3/63a0db36e908f617616b9a64fc4555c6.zip",
+      "sha256": "47220be93dac086c98bdbdb530cd9ce414fac3375a38c9eda89ae626ce948ce8",
+      "bytes": 889285
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/6/b/6b508712607b2a89b838ccded7e8a2a8.pdf",
+      "sha256": "40b058472f2a6d3dc08a664ceba5ba30541ee1b08717f4f76fc07efe043c27d1",
+      "bytes": 946511
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/7/0/70ba1e9f73ea24131c5739f1c1df04e6.pdf",
+      "sha256": "a151bd5eefe8ac0c6126f2bb22821b533abf35031810135011de510338802f51",
+      "bytes": 888534
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/7/1/71c60a5a69927a354f02a58f94a2db2a.epub",
+      "sha256": "5019d3898a67e98519cec671ef9487d893ad878bb227da8993199140df2a89f9",
+      "bytes": 46100488
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/7/4/74b14a3af510fbf5b6b33a2acbf0bd7d.zip",
+      "sha256": "eb056ad066064e5b0c9869a4e42ea35f5a83f1f55fc00645a6da4be925c3e9ef",
+      "bytes": 236424
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/7/8/78bdde20174075cfb3081a100ae33b36.mp4",
+      "sha256": "a8eefe5b82550ec45dc7e3ae08c0c45cc83a1fd107461adb5f3b349583787be0",
+      "bytes": 27428774
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/7/9/79aaa05e8c73b4f5c79e53f680e73624.mp4",
+      "sha256": "576c8c3ce9b19ac95313acaa6339864a37df66fddd08d40d652e91b231d6fcc4",
+      "bytes": 4370294
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/4/84524f0d824fd9319919949bc1822822.mp4",
+      "sha256": "69bb396dadc839efb854fb8a23eb4a898ab0eff787a9d2cb9a463495179f152b",
+      "bytes": 208697
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/5/8585d251c69e6d035c2e670c285aa189.mp4",
+      "sha256": "0b3f6b0876ba72fd11a48f3afe4df54c31c4cb562eaae9de4dddae05aa239d16",
+      "bytes": 9209456
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/6/8680ea0ee908cfeebf84c318fb04f3ef.zip",
+      "sha256": "9211d35538e1c20e661a49ec93ddea85f85b93397b70014c84b8c48af5083c5f",
+      "bytes": 211192
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/7/87adbc9ca857505e28fda9525359aed7.pdf",
+      "sha256": "d42d617b0e8248d5e1da801381461df7d9e84865b3bfdfc27c324445e8f56e02",
+      "bytes": 362742
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/8/88c7bad041e661234f06e486ab5e539a.pdf",
+      "sha256": "07c7c079cb7b95a57a8799464d92e38c804c7fd09842e2387128578e7b5762d8",
+      "bytes": 8608992
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/b/8b2d19602c6fb3e7690227bbb8d8d9b5.pdf",
+      "sha256": "4a98186137d19bf86f5c90de9da600ed72937173f75fdd8407017b8a7dac4327",
+      "bytes": 436872
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/b/8bbc449162f6b94c5f1b582f18c522cb.perseus",
+      "sha256": "6371b628a7aa871307f2ccebd9c7a62b05e3b510ac59e99c4cc6d29869069256",
+      "bytes": 5695
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/c/8c21f98a21c9def61e2379e540df8d94.zip",
+      "sha256": "56345b8d35c48e464d47c3d57b398d1e8548c39d8d4b6921f22ed879353ced9d",
+      "bytes": 802308
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/8/c/8c2e0c50bac21f7e0df273a97b5cc73b.pdf",
+      "sha256": "0ccaeaebabe0c0d48a5dd1d16b8037fa6e9815ea81b09ce5ccb7bf8082a7194a",
+      "bytes": 558664
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/a/1/a1d426d514546ff716946e575c12c534.zip",
+      "sha256": "0bcb388ad8189dc89f13d0f95eb2146ef2ca5e26066d229d0c9f7bd189b2106c",
+      "bytes": 737014
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/a/7/a7002225d41b7bfda03209394b4ee19d.zip",
+      "sha256": "0e2619ca1600810b9e1fc94f3384f86ea4e243648afcf5220d25c6e274ebd5dc",
+      "bytes": 269336
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/c/0/c0a6c933215afa6edb309092aa8197c0.zip",
+      "sha256": "b551720f9cd66ec568d3061aa9db58b793170d84098c922b5df9b1d6b7bde93f",
+      "bytes": 481986
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/c/2/c2bd89eff684fbefd6dec737841264e2.zip",
+      "sha256": "bc6f0507bde99183bb89048d779c78082aa98c726034aa881e93b43eefc01ce7",
+      "bytes": 57689
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/e/4/e42e90d5ccf926719bdf0f08e9a061d1.pdf",
+      "sha256": "742a80cd8ef69c0d3c6c0963cb238def0f763cff69932a5f5639204d7395fae5",
+      "bytes": 14955
+    },
+    {
+      "path": "KOLIBRI_DATA/content/storage/f/d/fd43b981a4d412075173dbfc2c96e891.zip",
+      "sha256": "f4de80a9b91b499dd363cff97e1de2e52d339c120896c99d94e8cb5238b342c6",
+      "bytes": 768699
+    }
+  ]
+}

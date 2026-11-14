@@ -124,22 +124,57 @@ send() {  # send "<command>" -> 0 Done, 1 Failed, 2 timeout, 3 unreachable
 # image's /entrypoint.sh, as compose.yaml does.
 # shellcheck disable=SC2016  # expanded inside the container
 KRUN='B=${KOLIBRI_BIN:-}; if [ -z "$B" ]; then if command -v kolibri >/dev/null 2>&1; then B=kolibri; else for f in ./kolibri-*; do [ -x "$f" ] && B=$f; done; fi; fi; [ -n "$B" ] || { echo "no Kolibri binary (set KOLIBRI_BIN)" >&2; exit 78; }; "$B" "$@"'
+# Resolve the canonical pack root (pack.json / CREDITS.txt / KOLIBRI_DATA).
+# A directory with KOLIBRI_DATA is used as-is. A pack tar is extracted under
+# IDEA_DEMO_PACK_DIR (e.g. <instance>/demo-pack/x/), never mktemp or /tmp.
+pack_root_or_extract() {
+  local src="${1:-}" dest="${IDEA_DEMO_PACK_DIR:-}"
+  [ -n "$src" ] || { echo "no pack path (IDEA_DEMO_PACK_DIR or --channels)" >&2; return 1; }
+  if [ -d "$src" ]; then
+    [ -d "$src/KOLIBRI_DATA/content/databases" ] || { echo "no KOLIBRI_DATA/content/databases in $src" >&2; return 1; }
+    printf '%s\n' "$src"; return 0
+  fi
+  [ -f "$src" ] || { echo "no pack at $src" >&2; return 1; }
+  [ -n "$dest" ] || { echo "IDEA_DEMO_PACK_DIR is required to extract a pack tar (refusing /tmp)" >&2; return 1; }
+  local resolved
+  if [ -d "$dest" ]; then resolved="$(cd "$dest" && pwd)"
+  else resolved="$(cd "$(dirname "$dest")" && pwd)/$(basename "$dest")"
+  fi
+  case "$resolved" in
+    /tmp|/tmp/*) echo "refusing to extract under /tmp: $resolved" >&2; return 1 ;;
+  esac
+  mkdir -p "$dest"
+  if [ ! -d "$dest/KOLIBRI_DATA/content/databases" ]; then
+    echo "+ tar -xf $src -C $dest" >&2
+    [ "${DRY:-0}" = 1 ] || tar -xf "$src" -C "$dest" || return 1
+  fi
+  [ -d "$dest/KOLIBRI_DATA/content/databases" ] || [ "${DRY:-0}" = 1 ] || {
+    echo "no KOLIBRI_DATA/content/databases after extracting $src into $dest" >&2; return 1; }
+  printf '%s\n' "$dest"
+}
+
 import_channels() {  # $1 data dir
-  local src="$CHANNELS" tmp=""
-  if [ -f "$src" ]; then tmp="$(mktemp -d)"; tar -xf "$src" -C "$tmp" || return 1; src="$tmp"; fi
-  [ -d "$src/KOLIBRI_DATA/content/databases" ] || { echo "no KOLIBRI_DATA/content/databases in $CHANNELS" >&2; return 1; }
+  local src root rc=0 db cid
+  # Hook: IDEA_DEMO_PACK_DIR is the extracted pack. Manual install: --channels
+  # may be a directory or a tar (the tar is extracted into IDEA_DEMO_PACK_DIR).
+  if [ -n "${CHANNELS:-}" ]; then
+    src="$CHANNELS"
+  else
+    src="${IDEA_DEMO_PACK_DIR:-}"
+  fi
+  root="$(pack_root_or_extract "$src")" || return 1
   local db cid rc=0
-  for db in "$src"/KOLIBRI_DATA/content/databases/*.sqlite3; do
+  for db in "$root"/KOLIBRI_DATA/content/databases/*.sqlite3; do
+    [ -f "$db" ] || continue
     cid="$(basename "$db" .sqlite3)"
     for verb in importchannel importcontent; do
       echo "+ kolibri manage $verb disk $cid /export" >&2
-      [ "$DRY" = 1 ] && continue
+      [ "${DRY:-0}" = 1 ] && continue
       ${DOCKER:-docker} run --rm --network none -e KOLIBRI_RUN_MODE=docker -e KOLIBRI_HOME=/root/.kolibri \
-        -v "$1:/root/.kolibri" -v "$src/KOLIBRI_DATA:/export:ro" \
+        -v "$1:/root/.kolibri" -v "$root/KOLIBRI_DATA:/export:ro" \
         --entrypoint sh "${IMAGE:-koenswings/kolibri:1.1-0.19.5}" -c "$KRUN" kolibri manage "$verb" disk "$cid" /export || rc=1
     done
   done
-  [ -n "$tmp" ] && rm -rf "$tmp"
   return $rc
 }
 
@@ -204,7 +239,13 @@ main() {
   wait_stopped "$data" || die 14 "Kolibri of $id still running after stopInstance"
   local rc=0
   ${PROVISION:-"$HERE/provision-demo.sh"} --demo-instance "${FORCE[@]}" $([ "$DRY" = 1 ] && echo --dry-run) "$data" || rc=15
-  if [ $rc = 0 ] && [ "$NOCH" = 0 ]; then import_channels "$data" || rc=16; fi
+  if [ $rc = 0 ] && [ "$NOCH" = 0 ]; then
+    # Manual --channels TAR extracts into the instance pack dir, never /tmp (engine#369).
+    if [ -z "${IDEA_DEMO_PACK_DIR:-}" ] && [ -n "${inst:-}" ]; then
+      IDEA_DEMO_PACK_DIR="$inst/demo-pack/x"
+    fi
+    import_channels "$data" || rc=16
+  fi
   send "startInstance $id $disk" || { [ $rc = 0 ] && rc=17; echo "ERROR: startInstance Failed" >&2; }
   if [ $rc = 0 ]; then
     port="$(sed -n 's/^port=//p' "$inst/.env" 2>/dev/null | head -1)"; port="${port:-$port}"

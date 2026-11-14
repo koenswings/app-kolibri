@@ -216,11 +216,38 @@ reads it when the page loads; a hash-only navigation keeps the window). Checked 
 0.19.5: without the key the window shows for learner2 (HOME) and teacher2 (LIBRARY, "import some
 channels"); with the key and a reload it does not.
 
+## Engine hook and demo pack (engine-dev#369)
+
+`setupDemo` (Engine) installs and starts the instance. The App hook only seeds.
+The Engine runs `<apps>/<appId>/demo/hook.sh <step>` as `pi`, with cwd set to the
+instance folder and `IDEA_DEMO=1`, `IDEA_DEMO_INSTANCE_ID`, `IDEA_DEMO_INSTANCE_DIR`,
+`IDEA_DEMO_DATA_DIR`, `IDEA_DEMO_PACK_DIR`, `IDEA_DEMO_PORT`, `IDEA_DEMO_COMPOSE_PROJECT`.
+
+| Step | When | What |
+|---|---|---|
+| `seed` | instance stopped | `provision-demo.sh --demo-instance` and `import_channels` from `${IDEA_DEMO_PACK_DIR}` |
+| `classwork` | instance running | `seed_classwork.py --url http://127.0.0.1:$IDEA_DEMO_PORT` |
+
+The hook never calls `engine-cmd`, `installApp`, `startInstance`, `stopInstance` or
+`docker compose`. It never extracts under `mktemp` or `/tmp`: a pack tar is unpacked
+only under `${IDEA_DEMO_PACK_DIR}` (the instance's `demo-pack/x/`). Both steps are
+idempotent; `seed_classwork.py` does not reset learner progress on a re-press.
+`install-demo.sh` stays usable by hand (it still talks to the Engine command queue).
+
+The pack is pack v1 (`demo/pack.json`, schema in engine-dev#369). Layout at the tar
+root (no wrapping directory): `pack.json`, `CREDITS.txt`, `KOLIBRI_DATA/content/{databases,storage}`.
+Build it with `demo/build-demo-pack.sh --export <export-v3-or-later.tar> --credits CREDITS.txt --out OUT`.
+The published asset name is `idea-demo-kolibri-v<packVersion>.tar`, pinned by sha256 in
+`app.yaml` (`demo.pack`). This repo does not upload the asset; that happens after the QC gate.
+Export version 3 or later is required (exercises; see below). `compose.yaml` data mounts
+are unchanged.
+
 ## Tests
 
 ```sh
-node --test tests/                  # includes install-demo.test.mjs (mocked Engine queue)
+node --test tests/*.test.mjs        # includes install-demo, hook and pack tests (mocked Engine queue)
 python3 -m unittest discover -s tests -p 'test_*.py'   # CSV + script logic
+tests/check-compose.sh
 tests/demo-seed-integration.sh                          # throwaway Kolibri container ($IMAGE, default 0.19.5)
 tests/classwork_check.py --url http://127.0.0.1:PORT    # TEST instance only: learner1 does an exercise + the quiz, teacher1 sees progress. Refuses kid-kolibri-demo (ports 18090/18091 or a container/instance name containing that id).
 ```

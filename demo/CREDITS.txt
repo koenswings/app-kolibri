@@ -1,0 +1,94 @@
+IDEA-DEMO pack — credits
+Date: 14 November 2026 (Europe/Brussels)
+This pack is offered for education.
+
+Sources: agent-app-dev demo/idea-demo/ at main 4c6a815 (demo pack last changed at 22a2bcb);
+Kolibri content as shipped in idea-demo-kolibri-export.v4.tar (channel version 4;
+channel ids Early Reading 54c4d96f…, Grade 5 Science 45fc4638…, Maths 6dc027c8…).
+Licences and authors below were checked against the publisher file, the work itself
+(PDF credits page, EPUB frontmatter, or Wikimedia Commons API), or both. Fields that
+could not be confirmed are marked UNKNOWN and listed in CHECK.md. Nothing here is guessed.
+
+Format of the catalogue lines (engine-dev#369 pack v1):
+  path | title | author | source URL | licence
+Paths use the publisher-tree names from MANIFEST.json (and the static exercise paths).
+They document the work; they do not have to equal KOLIBRI_DATA/content/storage/… paths.
+The licence column includes the licence name and version, the licence URL where one
+applies, and a transcoded or “unchanged (no derivatives)” note where that applies.
+
+Standard attribution sentences for the licences used in this file are collected
+after the catalogue. Use the per-work title, author and source URL together with
+the sentence for that work’s licence.
+
+Kolibri packaging notes
+- This file covers the works inside the Kolibri demo pack (export v4 plus CREDITS).
+- Still images are packaged for Kolibri as a small html5 zip (the original image plus
+  a short index.html wrapper from the IDEA channel builder). That wrapper is IDEA
+  tooling, not a separate third-party work. The licence below is for the image.
+- The three channel databases stamp author “IDEA Demo” and a generic channel-level
+  licence (CC BY-SA on Early Reading and Grade 5 Science; CC BY-NC-SA on Maths) on
+  every resource. Those stamps are not the publisher licences. The per-work entries
+  below are the ones that apply.
+- Commons videos (prepare=video in fetch.py) are transcoded to H.264/AAC, scaled
+  to at most 1280 px wide, and trimmed to at most 90 seconds; a silent audio track
+  is added if the original had none. Khan Academy videos (prepare=video-full) are
+  transcoded the same way but are not trimmed.
+- ND (no derivatives) works are included unchanged.
+- Export v4 added three Storybooks UK PDFs that were not in v3: Magozwe,
+  Grandma’s bananas, and The Honeyguide’s revenge. This credits file is for v4.
+
+kolibri/Grade 5 Science/Plants/Growing maize.mp4 | Growing of corn | Szabolcs Turuczki | https://commons.wikimedia.org/wiki/File:Growing_of_corn.webm | Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0); https://creativecommons.org/licenses/by-sa/4.0/; transcoded: yes (ffmpeg H.264/AAC rescale; trimmed to at most 90 seconds; a silent audio track is added if the original had none)
+kolibri/Grade 5 Science/Plants/Bean seed time-lapse.mp4 | Lima Bean Time Lapse | David Marvin | https://commons.wikimedia.org/wiki/File:Lima_Bean_Time_Lapse.webm | Creative Commons Attribution 3.0 Unported (CC BY 3.0); https://creativecommons.org/licenses/by/3.0/; transcoded: yes (ffmpeg H.264/AAC rescale; trimmed to at most 90 seconds; a silent audio track is added if the original had none)
+kolibri/Grade 5 Science/Plants/Parts of a flower.png | Parts of a peach flower | Teohalfen | https://commons.wikimedia.org/wiki/File:Parts_of_a_peach_flower.png | Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0); https://creativecommons.org/licenses/by-sa/4.0/
+kolibri/Grade 5 Science/Animals/Honey bee taking off.mp4 | Honey bee takes off in ultra slow motion | Joris Schaap | https://commons.wikimedia.org/wiki/File:Honey_bee_takes_off_in_ultra_slow_motion.webm | Creative Commons Attribution 3.0 Unported (CC BY 3.0); https://creativecommons.org/licenses/by/3.0/; transcoded: yes (ffmpeg H.264/AAC rescale; trimmed to at most 90 seconds; a silent audio track is added if the original had none)
+kolibri/Grade 5 Science/Animals/Elephant and zebra in Hwange.jpg | Elephant and Zebra in Hwange | Faypearse | https://commons.wikimedia.org/wiki/File:Elephant_and_Zebra_in_Hwange.jpg | Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0); https://creativecommons.org/licenses/by-sa/4.0/
+kolibri/Grade 5 Science/Animals/Curious elephant Zimbabwe.jpg | Curious elephant, Zim | JackyR | https://commons.wikimedia.org/wiki/File:Curious_elephant,_Zim.jpg | Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0); https://creativecommons.org/licenses/by-sa/3.0/
+kolibri/Grade 5 Science/Earth and Sky/The water cycle.png | Water Cycle-en | Derived from Wasserkreislauf.png by Wikimedia user Joooo (de); subsequent derivative works by moyogo and Alexchris | https://commons.wikimedia.org/wiki/File:Water_Cycle-en.png | Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0); https://creativecommons.org/licenses/by-sa/3.0/
+kolibri/Grade 5 Science/Earth and Sky/The solar system.png | Solar System graphic by NASA | NASA | https://commons.wikimedia.org/wiki/File:Solar_System_graphic_by_NASA.png | Public domain
+kolibri/Grade 5 Science/Earth and Sky/Phases of the moon.jpg | Moon phases en | Orion 8 | https://commons.wikimedia.org/wiki/File:Moon_phases_en.jpg | Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0); https://creativecommons.org/licenses/by-sa/3.0/
+kolibri/Grade 5 Science/Textbooks/Natural Sciences Grade 5.epub | Natural Sciences and Technology - Grade 5 CAPS (unbranded EPUB) | Siyavula Education; developed and funded by the Sasol Inzalo Foundation in partnership with Siyavula and volunteers | https://www.siyavula.com/downloads/books/science/Gr5_NaturalSciences_Learner_Eng_CC-BY.epub | Creative Commons Attribution 4.0 International (CC BY 4.0); https://creativecommons.org/licenses/by/4.0/
+kolibri/Grade 5 Science/Textbooks/Natural Sciences Grade 4.epub | Natural Sciences and Technology - Grade 4 CAPS (unbranded EPUB) | Siyavula Education; developed and funded by the Sasol Inzalo Foundation in partnership with Siyavula and volunteers | https://www.siyavula.com/downloads/books/science/Gr4_NaturalSciences_Learner_Eng_CC-BY.epub | Creative Commons Attribution 4.0 International (CC BY 4.0); https://creativecommons.org/licenses/by/4.0/
+kolibri/Grade 5 Science/Textbooks/Natural Sciences Grade 5A.pdf | Natural Sciences and Technology Grade 5-A Learner's Workbook | Siyavula and volunteer educators, academics and students; developed and funded by the Sasol Inzalo Foundation in partnership with Siyavula and volunteers. Distributed by the Department of Basic Education | https://www.siyavula.com/downloads/books/science/Gr5A_NaturalSciences_Learner_Eng.pdf | Creative Commons Attribution-NoDerivatives 3.0 Unported (CC BY-ND 3.0); https://creativecommons.org/licenses/by-nd/3.0/; unchanged (no derivatives)
+kolibri/Early Reading/Our Country/Victoria Falls.jpg | Victoria Falls, Zimbabwe 01 | Bernard Gagnon | https://commons.wikimedia.org/wiki/File:Victoria_Falls,_Zimbabwe_01.jpg | Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0); https://creativecommons.org/licenses/by-sa/4.0/
+kolibri/Early Reading/Our Country/Herd of elephants Hwange.jpg | Herd of elephants in the Hwange national park. Zimbabwe. - panoramio | Jürgen Kehrberger | https://commons.wikimedia.org/wiki/File:Herd_of_elephants_in_the_Hwange_national_park._Zimbabwe._-_panoramio.jpg | Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0); https://creativecommons.org/licenses/by-sa/3.0/
+kolibri/Early Reading/Stories/Is there someone like me.pdf | Is there someone like me? (With activities) | Fred Strydom; illustrated by Jess Jardim-Wedepohl; adaptation by African Storybook; © Fred Strydom, Jess Jardim-Wedepohl, Stephen Wallace, Book Dash 2015 | https://www.africanstorybook.org/read/downloadbook.php?layout=landscape&id=37083 | Creative Commons Attribution 4.0 International (CC BY 4.0); https://creativecommons.org/licenses/by/4.0/
+kolibri/Early Reading/Stories/Nena and love.pdf | Nena and love | Elizabeth Imobieye and Ella Imobieye; illustrated by Offei Tettey Eugene; © African Storybook Initiative 2022 | https://www.africanstorybook.org/read/downloadbook.php?layout=landscape&id=40114 | Creative Commons Attribution 4.0 International (CC BY 4.0); https://creativecommons.org/licenses/by/4.0/
+kolibri/Early Reading/Stories/Mom and Me Love Always Wins.pdf | Mom and Me. Love Always Wins | Adeyemi Yemisi 'Theo (author and illustrator); © African Storybook Initiative 2021 | https://www.africanstorybook.org/read/downloadbook.php?layout=landscape&id=36966 | Creative Commons Attribution 4.0 International (CC BY 4.0); https://creativecommons.org/licenses/by/4.0/
+kolibri/Early Reading/Stories/Lady Amelia and her butterfly.pdf | Lady Amelia and her butterfly, Beauty | Fortunate Banda; translated by Glanice Masilo; illustrated by Fortunate Sedie; © African Storybook Initiative 2024 | https://www.africanstorybook.org/read/downloadbook.php?layout=landscape&id=49407 | Creative Commons Attribution 4.0 International (CC BY 4.0); https://creativecommons.org/licenses/by/4.0/
+kolibri/Early Reading/Stories/Magozwe.pdf | Magozwe | Lesley Koyi; illustrated by Wiehan de Jager; African Storybook, via Storybooks UK (Global Storybooks) | https://global-asp.github.io/storybooks-uk/stories/en/0262/ | Creative Commons Attribution 4.0 International (CC BY 4.0); https://creativecommons.org/licenses/by/4.0/
+kolibri/Early Reading/Stories/The Honeyguides revenge.pdf | The Honeyguide's revenge | A Zulu folktale; illustrated by Wiehan de Jager; African Storybook, via Storybooks UK (Global Storybooks) | https://global-asp.github.io/storybooks-uk/stories/en/0072/ | Creative Commons Attribution 3.0 Unported (CC BY 3.0); https://creativecommons.org/licenses/by/3.0/
+kolibri/Early Reading/Stories/Grandmas bananas.pdf | Grandma's bananas | Ursula Nafula; illustrated by Catherine Groenewald; African Storybook, via Storybooks UK (Global Storybooks) | https://global-asp.github.io/storybooks-uk/stories/en/0294/ | Creative Commons Attribution 3.0 Unported (CC BY 3.0); https://creativecommons.org/licenses/by/3.0/
+kolibri/Early Reading/Stories/Reading - Rudo and the goat.exercise.json | Reading: Rudo and the goat | IDEA Demo | https://github.com/koenswings/agent-app-dev/blob/4c6a815b0290288c4cf0e4dddc074ecb0e72a7d3/demo/idea-demo/static/kolibri/Early%20Reading/Stories/Reading%20-%20Rudo%20and%20the%20goat.exercise.json | UNKNOWN
+kolibri/Maths/Fractions/Fraction circles.png | Fraction Circles Shaded | Zapotz | https://commons.wikimedia.org/wiki/File:Fraction_Circles_Shaded.png | Creative Commons CC0 1.0 Universal Public Domain Dedication (CC0 1.0); https://creativecommons.org/publicdomain/zero/1.0/
+kolibri/Maths/Fractions/Cake in quarters.jpg | Cake-quarters | Ian Tresman | https://commons.wikimedia.org/wiki/File:Cake-quarters.jpg | Creative Commons Attribution 2.5 Generic (CC BY 2.5); https://creativecommons.org/licenses/by/2.5/
+kolibri/Maths/Fractions/Paper fraction pies.jpg | Foam paper fraction pies | Bernát Kalló | https://commons.wikimedia.org/wiki/File:Foam_paper_fraction_pies.JPG | Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0); https://creativecommons.org/licenses/by-sa/4.0/
+kolibri/Maths/Times Tables/Multiplication table.pdf | Multiplication Table | TYalaA | https://commons.wikimedia.org/wiki/File:Multiplication_Table.pdf | Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0); https://creativecommons.org/licenses/by-sa/4.0/
+kolibri/Maths/Times Tables/Easy multiplication tables.pdf | Easy-multiplication-tables | Antonellaper | https://commons.wikimedia.org/wiki/File:Easy-multiplication-tables.pdf | Creative Commons CC0 1.0 Universal Public Domain Dedication (CC0 1.0); https://creativecommons.org/publicdomain/zero/1.0/
+kolibri/Maths/Fractions/Visually adding fractions 5-6 plus 1-4.mp4 | Visually adding fractions: 5/6+1/4 | Sal Khan; Khan Academy | https://www.youtube.com/watch?v=qbFCneQthhM | Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States (CC BY-NC-SA 3.0 US); https://creativecommons.org/licenses/by-nc-sa/3.0/us/; transcoded: yes (ffmpeg H.264/AAC rescale)
+kolibri/Maths/Fractions/Visually subtracting fractions 3-4 minus 5-8.mp4 | Visually subtracting fractions: 3/4-5/8 | Sal Khan; Khan Academy | https://www.youtube.com/watch?v=poGjjX_VNbM | Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States (CC BY-NC-SA 3.0 US); https://creativecommons.org/licenses/by-nc-sa/3.0/us/; transcoded: yes (ffmpeg H.264/AAC rescale)
+kolibri/Maths/Fractions/Multiplying fractions and whole numbers.mp4 | Conceptual understanding of multiplying fractions and whole numbers | Sal Khan; Khan Academy | https://www.youtube.com/watch?v=XaJQse2u5TQ | Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States (CC BY-NC-SA 3.0 US); https://creativecommons.org/licenses/by-nc-sa/3.0/us/; transcoded: yes (ffmpeg H.264/AAC rescale)
+kolibri/Maths/Multiplication/Multiplying multi-digit numbers.mp4 | Multiplying multiple digit numbers | Sal Khan; Khan Academy | https://www.youtube.com/watch?v=-h3Oqhl8fPg | Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States (CC BY-NC-SA 3.0 US); https://creativecommons.org/licenses/by-nc-sa/3.0/us/; transcoded: yes (ffmpeg H.264/AAC rescale)
+kolibri/Maths/Fractions/Fractions practice.exercise.json | Fractions practice | IDEA Demo | https://github.com/koenswings/agent-app-dev/blob/4c6a815b0290288c4cf0e4dddc074ecb0e72a7d3/demo/idea-demo/static/kolibri/Maths/Fractions/Fractions%20practice.exercise.json | UNKNOWN
+kolibri/Maths/Times Tables/Times tables practice.exercise.json | Times tables practice | IDEA Demo | https://github.com/koenswings/agent-app-dev/blob/4c6a815b0290288c4cf0e4dddc074ecb0e72a7d3/demo/idea-demo/static/kolibri/Maths/Times%20Tables/Times%20tables%20practice.exercise.json | UNKNOWN
+
+Standard attribution sentences
+- Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0) — https://creativecommons.org/licenses/by-sa/4.0/
+  This work is licensed under the Creative Commons Attribution-ShareAlike 4.0 International License. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/4.0/
+- Creative Commons Attribution 3.0 Unported (CC BY 3.0) — https://creativecommons.org/licenses/by/3.0/
+  This work is licensed under the Creative Commons Attribution 3.0 Unported License. To view a copy of this license, visit https://creativecommons.org/licenses/by/3.0/
+- Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0) — https://creativecommons.org/licenses/by-sa/3.0/
+  This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/3.0/
+- Public domain
+  This work is in the public domain. Wikimedia Commons records the file as public domain (category PD NASA; Copyrighted: False; artist: NASA). No Creative Commons licence URL applies.
+- Creative Commons Attribution 4.0 International (CC BY 4.0) — https://creativecommons.org/licenses/by/4.0/
+  This work is licensed under the Creative Commons Attribution 4.0 International License. To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
+- Creative Commons Attribution-NoDerivatives 3.0 Unported (CC BY-ND 3.0) — https://creativecommons.org/licenses/by-nd/3.0/
+  This work is licensed under the Creative Commons Attribution-NoDerivatives 3.0 Unported License. To view a copy of this license, visit https://creativecommons.org/licenses/by-nd/3.0/ You may share this work freely, but you must not change it.
+- UNKNOWN
+  No licence is stated on the work itself. See CHECK.md.
+- Creative Commons CC0 1.0 Universal Public Domain Dedication (CC0 1.0) — https://creativecommons.org/publicdomain/zero/1.0/
+  The author has dedicated this work to the public domain under the Creative Commons CC0 1.0 Universal Public Domain Dedication. To the extent possible under law, the author has waived all copyright and related or neighboring rights. https://creativecommons.org/publicdomain/zero/1.0/
+- Creative Commons Attribution 2.5 Generic (CC BY 2.5) — https://creativecommons.org/licenses/by/2.5/
+  This work is licensed under the Creative Commons Attribution 2.5 Generic License. To view a copy of this license, visit https://creativecommons.org/licenses/by/2.5/
+- Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States (CC BY-NC-SA 3.0 US) — https://creativecommons.org/licenses/by-nc-sa/3.0/us/
+  This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States License. To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/us/ Non-commercial use only.
