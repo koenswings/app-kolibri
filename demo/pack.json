@@ -3,7 +3,7 @@
   "packVersion": 4,
   "app": "kolibri",
   "minAppVersion": "1.2-0.19.5",
-  "bytes": 192361107,
+  "bytes": 192361718,
   "credits": "CREDITS.txt",
   "hooks": [
     {
@@ -18,8 +18,8 @@
   "files": [
     {
       "path": "CREDITS.txt",
-      "sha256": "4cf9e53e1b82bc62c12f68a5240876ef8d0af88e39c00ed98da09db1bd492380",
-      "bytes": 18175
+      "sha256": "aaf22b83230c9ebf9091f20d8526e75d39e2eafcefd3338339259eaf2bb22cbd",
+      "bytes": 18786
     },
     {
       "path": "KOLIBRI_DATA/content/databases/45fc46386f76517bb3e86fb3cb235ad9.sqlite3",
