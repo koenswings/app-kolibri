@@ -31,6 +31,6 @@ Kolibri opens a second port, `KOLIBRI_ZIP_CONTENT_PORT`. With `network_mode: hos
 
 Right after the mount check, before the zip-content port, binary and job_storage steps: for each
 `$KOLIBRI_HOME/idea-backup/<db>.sqlite3` (written by the backup preHook, see [backup.md](./backup.md))
-whose live `<db>.sqlite3` is missing, the copy is renamed into place. A stray `-wal`/`-shm` of that
+whose live `<db>.sqlite3` is missing, the copy is renamed into place. A stray `-wal`/`-shm`/`-journal` of that
 database is renamed `….pre-restore-<UTC stamp>` first (never deleted). An existing live database is
 never replaced. No `idea-backup/` folder, no change.

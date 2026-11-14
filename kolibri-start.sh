@@ -37,7 +37,7 @@ fi
 # Restore (idea#403): a hook-mode backup archive holds consistent copies of the SQLite databases in
 # $KOLIBRI_HOME/idea-backup/ (hooks/backup-pre.sh) and leaves the live files out (hookExclude). Put a
 # copy in place only when its live database is missing; an existing live database is never replaced.
-# A stray -wal/-shm of a missing database is renamed aside first, never deleted.
+# A stray -wal/-shm/-journal of a missing database is renamed aside first, never deleted.
 BK="$KOLIBRI_HOME/idea-backup"
 if [ -d "$BK" ]; then
   for c in "$BK"/*.sqlite3; do
@@ -48,7 +48,7 @@ if [ -d "$BK" ]; then
       continue
     fi
     rstamp=$(date -u +%Y%m%dT%H%M%SZ)
-    for s in -wal -shm; do
+    for s in -wal -shm -journal; do
       if [ -e "$KOLIBRI_HOME/$n$s" ]; then
         mv "$KOLIBRI_HOME/$n$s" "$KOLIBRI_HOME/$n$s.pre-restore-$rstamp"
         log "restore: moved stray $n$s aside to $n$s.pre-restore-$rstamp"

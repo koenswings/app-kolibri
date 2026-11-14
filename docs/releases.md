@@ -13,9 +13,9 @@ Changes since `1.2-0.19.5`. Kolibri stays on 0.19.5 and the image stays the same
   and a 300 s hook timeout (Engine contract agent-engine-dev#325). The preHook `hooks/backup-pre.sh`
   copies every Kolibri SQLite database with SQLite's online backup API into `data/kolibri/idea-backup/`
   and checks each copy; borg packs them while Kolibri keeps running; the postHook `hooks/backup-post.sh`
-  removes them. While a channel import or delete runs, the preHook exits 3 and the Engine takes the
-  short stop instead (`HOOK_FALLBACK`). `hookExclude` keeps the live databases, `-wal` and `-shm` out of
-  a hook archive; `exclude` drops `data/kolibri/process_cache`. See `docs/backup.md`.
+  removes them. While a channel import or delete runs, the preHook exits 3 (any non-zero exit falls
+  back) and the Engine takes the short stop instead (`HOOK_FALLBACK`; inside updateApp: `HOOK_FAILED`).
+  `hookExclude` keeps the live databases, `-wal`, `-shm` and `-journal` out of a hook archive; `exclude` drops `data/kolibri/process_cache`. See `docs/backup.md`.
 - **Restore:** `kolibri-start.sh` puts a backup copy in place only when its live database is missing.
 - Two read-only binds are added to the `kolibri` service (`/hooks/backup-pre.sh`, `/hooks/backup-post.sh`).
 

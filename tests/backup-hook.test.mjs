@@ -25,10 +25,12 @@ test('x-app.backup: method hook, fallback stop, 300 s, pre/post hooks in the kol
   assert.match(block, /^    postHook:\n      service: kolibri\n      command: \/hooks\/backup-post\.sh$/m)
 })
 
-test('hookExclude covers every database the preHook knows, with -wal and -shm (no globs)', () => {
+test('hookExclude covers every database the preHook knows, with -wal, -shm and -journal (no globs)', () => {
   assert.deepEqual(known, ['db', 'job_storage', 'notifications', 'networklocation', 'sessions', 'syncqueue'])
-  const want = known.flatMap(n => ['', '-wal', '-shm'].map(s => `data/kolibri/${n}.sqlite3${s}`))
+  const want = known.flatMap(n => ['', '-wal', '-shm', '-journal'].map(s => `data/kolibri/${n}.sqlite3${s}`))
   assert.deepEqual(list('hookExclude'), want)
+  assert.equal(list('hookExclude').length, 24)
+  assert.equal(new Set([...list('exclude'), ...list('hookExclude')]).size, 25, 'a hook archive gets 25 excludes')
   for (const p of list('hookExclude')) assert.ok(!/[*?[\]]/.test(p), p)
 })
 
@@ -94,15 +96,17 @@ test('restore: an existing live db is never replaced', () => {
   assert.match(r.stdout, /live db\.sqlite3 present; backup copy left unused/)
 })
 
-test('restore: a stray -wal/-shm of a missing db is renamed aside, never deleted', () => {
-  const d = home({ 'db.sqlite3-wal': 'OLDWAL', 'db.sqlite3-shm': 'OLDSHM' }, { 'db.sqlite3': 'COPY' })
+test('restore: a stray -wal/-shm/-journal of a missing db is renamed aside, never deleted', () => {
+  const d = home({ 'db.sqlite3-wal': 'OLDWAL', 'db.sqlite3-shm': 'OLDSHM', 'db.sqlite3-journal': 'OLDJ' }, { 'db.sqlite3': 'COPY' })
   const r = start(d)
   assert.equal(r.status, 0, r.stderr)
   const files = readdirSync(d)
-  assert.ok(!files.includes('db.sqlite3-wal') && !files.includes('db.sqlite3-shm'))
+  assert.ok(!files.includes('db.sqlite3-wal') && !files.includes('db.sqlite3-shm') && !files.includes('db.sqlite3-journal'))
   const wal = files.find(f => /^db\.sqlite3-wal\.pre-restore-\d{8}T\d{6}Z$/.test(f))
   assert.ok(wal && readFileSync(join(d, wal), 'utf8') === 'OLDWAL')
   assert.ok(files.some(f => /^db\.sqlite3-shm\.pre-restore-/.test(f)))
+  const j = files.find(f => /^db\.sqlite3-journal\.pre-restore-\d{8}T\d{6}Z$/.test(f))
+  assert.ok(j && readFileSync(join(d, j), 'utf8') === 'OLDJ')
   assert.equal(readFileSync(join(d, 'db.sqlite3'), 'utf8'), 'COPY')
 })
 

@@ -50,28 +50,36 @@ x-app:
       - data/kolibri/process_cache
     # Out of a hook archive only (the copies replace them). On HOOK_FALLBACK the Engine drops this
     # list and packs the stopped live files. No globs (#325): one entry per file, the six
-    # Kolibri 0.19.5 databases (hooks/backup-pre.sh KNOWN) with their -wal/-shm.
+    # Kolibri 0.19.5 databases (hooks/backup-pre.sh KNOWN) with their -wal, -shm and -journal
+    # (a rollback journal can appear if a database ever leaves WAL mode).
     hookExclude:
       - data/kolibri/db.sqlite3
       - data/kolibri/db.sqlite3-wal
       - data/kolibri/db.sqlite3-shm
+      - data/kolibri/db.sqlite3-journal
       - data/kolibri/job_storage.sqlite3
       - data/kolibri/job_storage.sqlite3-wal
       - data/kolibri/job_storage.sqlite3-shm
+      - data/kolibri/job_storage.sqlite3-journal
       - data/kolibri/notifications.sqlite3
       - data/kolibri/notifications.sqlite3-wal
       - data/kolibri/notifications.sqlite3-shm
+      - data/kolibri/notifications.sqlite3-journal
       - data/kolibri/networklocation.sqlite3
       - data/kolibri/networklocation.sqlite3-wal
       - data/kolibri/networklocation.sqlite3-shm
+      - data/kolibri/networklocation.sqlite3-journal
       - data/kolibri/sessions.sqlite3
       - data/kolibri/sessions.sqlite3-wal
       - data/kolibri/sessions.sqlite3-shm
+      - data/kolibri/sessions.sqlite3-journal
       - data/kolibri/syncqueue.sqlite3
       - data/kolibri/syncqueue.sqlite3-wal
       - data/kolibri/syncqueue.sqlite3-shm
+      - data/kolibri/syncqueue.sqlite3-journal
     # idea#446 verifyBackup. An archive does not say whether it is a hook archive (copies, no live
-    # dbs) or a HOOK_FALLBACK one (live dbs, no copies), so every entry holds for both.
+    # dbs) or a HOOK_FALLBACK one (live dbs, no copies), so every entry holds for both. No database
+    # is checked yet: that needs the Engine to tag each archive with its hook result (Axle follow-up).
     # A path with a slash or a leading dot is instance-relative; a bare name means data/<name>.
     verify:
       present:

@@ -8,8 +8,12 @@
 # it into place. borg packs the copies; x-app.backup.hookExclude keeps the live files out of a hook
 # archive. kolibri-start.sh puts a copy back only when its live database is missing (restore).
 #
-# Exit codes: 0 copies written; 3 a channel/content import or channel delete is running, so the
-# Engine falls back to a short stop for this run (fallback: stop, proposal §3.5); 1 any other error.
+# Exit codes: 0 = copies written. ANY non-zero exit (or a timeout) is a failed preHook to the Engine:
+# it runs hooks/backup-post.sh and then takes the x-app.backup.fallback path (here `stop`: a short stop,
+# HOOK_FALLBACK). By convention 3 = a channel content task (import or channel delete) is running, and
+# 1 = any other error (unknown database, too little free space, a failed copy or integrity check).
+# Inside updateApp's pre-update backup the Engine forces fallback: fail, so an update during an import
+# is refused with HOOK_FAILED instead of stopping Kolibri (idea#448).
 # The Engine always runs hooks/backup-post.sh afterwards, which removes the copies.
 if command -v python3 >/dev/null 2>&1; then PY=python3
 elif command -v python >/dev/null 2>&1; then PY=python
@@ -19,6 +23,7 @@ exec "$PY" - "$@" <<'PY'
 import glob
 import json
 import os
+import shutil
 import sqlite3
 import sys
 import time
@@ -35,7 +40,11 @@ CONTENT_TASKS = tuple("kolibri.core.content.tasks." + f for f in (
     "automatic_resource_import", "automatic_synchronize_content_requests_and_import",
     "deletechannel",
 ))
-ACTIVE = ("SELECTED", "RUNNING", "CANCELING")  # QUEUED jobs have not started; they run after a stop too
+# QUEUED jobs do not block: they have not started and would run after a stop too. One may start
+# during borg; it only touches channel content, which is re-importable (packed as-is, next run is clean).
+ACTIVE = ("SELECTED", "RUNNING", "CANCELING")
+# Free space needed in $KOLIBRI_HOME beyond the databases' own size (db + -wal per database).
+MARGIN = int(os.environ.get("IDEA_BACKUP_MIN_FREE_MARGIN") or 32 * 1024 * 1024)
 
 
 def err(msg):
@@ -60,13 +69,37 @@ def active_content_jobs():
         con.close()
 
 
+class Refuse(Exception):
+    pass
+
+
 def databases():
-    names = set(n + ".sqlite3" for n in KNOWN if os.path.exists(os.path.join(HOME, n + ".sqlite3")))
-    for p in glob.glob(os.path.join(HOME, "*.sqlite3")):  # a database a later Kolibri adds
-        b = os.path.basename(p)
-        if not b.startswith("test_"):
-            names.add(b)
-    return sorted(names)
+    """The known databases present. Any other top-level *.sqlite3 (except test_*) refuses: its live
+    file would be packed next to no copy, so x-app.backup.hookExclude and KNOWN must be updated first."""
+    names = [n + ".sqlite3" for n in KNOWN if os.path.exists(os.path.join(HOME, n + ".sqlite3"))]
+    known = set(n + ".sqlite3" for n in KNOWN)
+    unknown = sorted(os.path.basename(p) for p in glob.glob(os.path.join(HOME, "*.sqlite3"))
+                     if os.path.basename(p) not in known and not os.path.basename(p).startswith("test_"))
+    if unknown:
+        raise Refuse("unknown database(s) %s in %s: add them to KNOWN in hooks/backup-pre.sh and to "
+                     "x-app.backup.hookExclude (with -wal, -shm, -journal) before a hook backup"
+                     % (", ".join(unknown), HOME))
+    return names
+
+
+def check_space(names):
+    total = 0
+    for n in names:
+        for suffix in ("", "-wal"):
+            f = os.path.join(HOME, n + suffix)
+            if os.path.exists(f):
+                total += os.path.getsize(f)
+    need = total + total // 10 + MARGIN
+    free = shutil.disk_usage(HOME).free
+    if free < need:
+        raise Refuse("not enough free space in %s for the copies: %d bytes free, %d needed "
+                     "(databases %d + 10%% + margin %d)" % (HOME, free, need, total, MARGIN))
+    return total, free
 
 
 def snapshot(name):
@@ -103,17 +136,28 @@ def main():
     if not os.path.isfile(os.path.join(HOME, "db.sqlite3")):
         err("no db.sqlite3 in %s; not a Kolibri home" % HOME)
         return 1
+    try:
+        names = databases()
+    except Refuse as e:
+        err(str(e))
+        return 1
     jobs = active_content_jobs()
     if jobs:
         err("channel content task running (%s); exit 3 so the Engine takes a short stop instead"
             % ", ".join("%s=%s" % (f.rsplit(".", 1)[-1], s) for f, s in jobs))
         return 3
+    try:
+        total, free = check_space(names)
+    except Refuse as e:
+        err(str(e))
+        return 1
     if not os.path.isdir(OUT):
         os.makedirs(OUT, 0o700)
     t0 = time.time()
-    done = [snapshot(n) for n in databases()]
+    done = [snapshot(n) for n in names]
     manifest = {"format": "idea-kolibri-backup/1", "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "seconds": round(time.time() - t0, 2), "databases": done}
+                "seconds": round(time.time() - t0, 2), "sourceBytes": total, "freeBytesBefore": free,
+                "databases": done}
     tmp = os.path.join(OUT, "MANIFEST.json.tmp")
     with open(tmp, "w") as f:
         json.dump(manifest, f, indent=1, sort_keys=True)

@@ -39,8 +39,8 @@ def make_jobs(path, jobs):
     return con
 
 
-def run(script, home):
-    env = dict(os.environ, KOLIBRI_HOME=home)
+def run(script, home, extra=None):
+    env = dict(os.environ, KOLIBRI_HOME=home, **(extra or {}))
     return subprocess.run(["sh", script], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           universal_newlines=True, timeout=120)
 
@@ -137,16 +137,28 @@ class BackupHookTest(unittest.TestCase):
         self.assertIn("no db.sqlite3", r.stderr)
 
     def test_unreadable_database_fails_nonzero(self):
-        bad = os.path.join(self.home, "broken.sqlite3")
+        i = DBS.index("notifications")
+        self.cons[i].close()
+        bad = os.path.join(self.home, "notifications.sqlite3")
+        for suffix in ("-wal", "-shm"):
+            if os.path.exists(bad + suffix):
+                os.rename(bad + suffix, bad + suffix + ".aside")
         with open(bad, "wb") as f:
             f.write(b"this is not a database" * 100)
+        self.cons[i] = sqlite3.connect(":memory:")
         r = run(PRE, self.home)
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertIn("broken.sqlite3", r.stderr + r.stdout + str(os.listdir(self.out)))
-        self.assertFalse(os.path.exists(os.path.join(self.out, "broken.sqlite3")))
+        self.assertFalse(os.path.exists(os.path.join(self.out, "notifications.sqlite3")))
 
-    def test_extra_db_copied_test_db_skipped_and_stale_tmp_replaced(self):
+    def test_unknown_database_refuses_with_hookexclude_message(self):
         self.cons.append(make_db(os.path.join(self.home, "future.sqlite3")))
+        r = run(PRE, self.home)
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn("future.sqlite3", r.stderr)
+        self.assertIn("hookExclude", r.stderr)
+        self.assertFalse(os.path.exists(self.out), "no copies when refusing")
+
+    def test_test_db_skipped_and_stale_tmp_replaced(self):
         self.cons.append(make_db(os.path.join(self.home, "test_job_storage.sqlite3")))
         os.makedirs(self.out)
         with open(os.path.join(self.out, "db.sqlite3.tmp"), "w") as f:
@@ -154,9 +166,21 @@ class BackupHookTest(unittest.TestCase):
         r = run(PRE, self.home)
         self.assertEqual(r.returncode, 0, r.stderr)
         names = os.listdir(self.out)
-        self.assertIn("future.sqlite3", names)
         self.assertNotIn("test_job_storage.sqlite3", names)
         self.assertFalse([n for n in names if n.endswith(".tmp")])
+
+    def test_too_little_free_space_refuses_before_copying(self):
+        env = {"IDEA_BACKUP_MIN_FREE_MARGIN": str(10 ** 18)}  # more than any disk has free
+        r = run(PRE, self.home, env)
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn("not enough free space", r.stderr)
+        self.assertFalse(os.path.exists(self.out), "no copies when short of space")
+
+    def test_manifest_records_source_size_and_free_space(self):
+        self.assertEqual(run(PRE, self.home).returncode, 0)
+        m = json.load(open(os.path.join(self.out, "MANIFEST.json")))
+        self.assertGreater(m["sourceBytes"], 0)
+        self.assertGreater(m["freeBytesBefore"], m["sourceBytes"])
 
     def test_post_removes_copies_only_and_is_idempotent(self):
         self.assertEqual(run(PRE, self.home).returncode, 0)
