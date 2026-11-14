@@ -17,6 +17,13 @@ test('x-app.version and the service x-app-version label are 1.2-0.19.5', () => {
   assert.deepEqual([...compose.matchAll(/^      x-app-version: "([^"]+)"$/gm)].map(m => m[1]), [VER])
 })
 
+test('app.yaml current_version matches compose x-app.version (engine#374)', () => {
+  const app = readFileSync(join(root, 'app.yaml'), 'utf8')
+  const m = app.match(/^    current_version: "([^"]+)"$/m)
+  assert.ok(m, 'app.yaml has current_version')
+  assert.equal(m[1], VER)
+})
+
 test('image pin unchanged: tag + multi-platform index digest (idea#322), no rebuild', () => {
   assert.deepEqual([...compose.matchAll(/^    image: (\S+)$/gm)].map(m => m[1]), [PIN])
   assert.ok(!/^    build:/m.test(compose))

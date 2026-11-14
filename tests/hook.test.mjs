@@ -2,7 +2,7 @@
 // only unpacks under IDEA_DEMO_PACK_DIR. Run: node --test tests/
 import { it, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, existsSync, symlinkSync, chmodSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, existsSync, symlinkSync, chmodSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -137,5 +137,47 @@ describe('hook.sh steps', () => {
     } })
     assert.notEqual(r.status, 0)
     assert.match(r.stderr, /must not be under \/tmp/)
+  })
+
+  it('seed creates a missing data dir before provision (engine#374)', () => {
+    const dir = workdir('khook-nodata-')
+    const inst = join(dir, 'instances', 'kolibri-demo')
+    const pack = join(inst, 'demo-pack', 'x')
+    const data = join(inst, 'data', 'kolibri')
+    const { src } = tinyExport(dir)
+    mkdirSync(pack, { recursive: true })
+    execSync(`cp -a ${src}/KOLIBRI_DATA ${pack}/`)
+    assert.equal(existsSync(data), false)
+    const plog = join(dir, 'prov.log'), dlog = join(dir, 'docker.log')
+    writeFileSync(join(dir, 'prov.sh'), `#!/bin/sh\n[ -d "$2" ] || { echo "data dir missing: $2" >&2; exit 9; }\necho "$@" >> ${plog}\nexit 0\n`, { mode: 0o755 })
+    writeFileSync(join(dir, 'docker.sh'), `#!/bin/sh\necho "$@" >> ${dlog}\nexit 0\n`, { mode: 0o755 })
+    const r = spawnSync('bash', [HOOK, 'seed'], { encoding: 'utf8', env: {
+      ...process.env,
+      IDEA_DEMO: '1',
+      IDEA_DEMO_INSTANCE_DIR: inst,
+      IDEA_DEMO_DATA_DIR: data,
+      IDEA_DEMO_PACK_DIR: pack,
+      PROVISION: join(dir, 'prov.sh'),
+      DOCKER: join(dir, 'docker.sh'),
+      PATH: process.env.PATH,
+    } })
+    assert.equal(r.status, 0, r.stderr + r.stdout)
+    assert.equal(existsSync(data), true)
+    assert.match(readFileSync(plog, 'utf8'), /--demo-instance /)
+    assert.ok(readFileSync(plog, 'utf8').includes(data), readFileSync(plog, 'utf8'))
+  })
+})
+
+describe('demo scripts: no untemplated mktemp (engine#374)', () => {
+  it('every mktemp in demo/*.sh passes a directory template containing XXXXXX', () => {
+    const files = readdirSync(join(root, 'demo')).filter(n => n.endsWith('.sh')).map(n => join(root, 'demo', n))
+    const untemplated = /\bmktemp\b(?![^\n]*XXXXXX)/
+    for (const f of files) {
+      const body = uncommented(f)
+      for (const line of body.split('\n')) {
+        if (!/\bmktemp\b/.test(line)) continue
+        assert.equal(untemplated.test(line), false, `${f} has mktemp without a XXXXXX template: ${line.trim()}`)
+      }
+    }
   })
 })

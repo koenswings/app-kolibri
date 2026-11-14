@@ -206,6 +206,28 @@ class Script(unittest.TestCase):
     def test_bad_option(self):
         self.assertEqual(self.dry("--nope").returncode, 2)
 
+    def test_scratch_under_instance_is_removed(self):
+        inst = tempfile.mkdtemp()
+        data = os.path.join(inst, "data", "kolibri")
+        os.makedirs(data)
+        scratch = os.path.join(inst, ".demo-seed-tmp")
+        env = dict(os.environ, DOCKER="false", IDEA_DEMO_INSTANCE_DIR=inst)
+        p = subprocess.run(["bash", SCRIPT, "--dry-run", "--demo-instance", data],
+                           capture_output=True, text=True, env=env)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertFalse(os.path.exists(scratch), "WORK parent should be removed after exit")
+        leftover = [n for n in os.listdir(inst) if n.startswith(".demo-seed")]
+        self.assertEqual(leftover, [])
+
+    def test_scratch_falls_back_next_to_data_dir(self):
+        inst = tempfile.mkdtemp()
+        data = os.path.join(inst, "data", "kolibri")
+        os.makedirs(data)
+        beside = os.path.join(os.path.dirname(data), ".demo-seed-tmp")
+        p = self.dry(d=data, flag=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertFalse(os.path.exists(beside), "fallback WORK parent should be removed after exit")
+
 
 import facility_info as fi  # noqa: E402
 import sqlite3  # noqa: E402
