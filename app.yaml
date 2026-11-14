@@ -22,3 +22,23 @@ services:
         url: "https://learningequality.org/r/kolibri-latest-whl"
         pattern: "kolibri-(?P<version>[\\d.]+(\\.dev\\d+)?)"
         notes: "Kolibri is distributed as a .whl (Python wheel). Monitor the latest release page."
+
+# Demo pack + hook (engine-dev#369, pack v1). setupDemo writes x-app.demo on the
+# instance compose; the app bundle does not ship that key. The pack pin is the
+# sha256 of the public release asset idea-demo-kolibri-v4.tar (built on the box;
+# the asset is published after the QC gate, not by this PR).
+# minEngine must be the Engine version that first advertises the demoApps
+# capability — confirm with Axle when that release is tagged.
+demo:
+  name: "Kolibri Demo"
+  minEngine: "1.0"
+  pack:
+    file: idea-demo-kolibri-v4.tar
+    url: https://github.com/koenswings/app-kolibri/releases/download/idea-demo-kolibri-v4/idea-demo-kolibri-v4.tar
+    sha256: "e5fe15d6edb4bc36b22bed5f6c232cf51d46d2c4d7dd529164f2a3271d7d9b34"
+    bytes: 192430080
+    minVersion: 3
+  reserveBytes: 300000000
+  steps:
+    - { id: seed,      run: demo/hook.sh seed,      needs: stopped, timeoutSec: 1800 }
+    - { id: classwork, run: demo/hook.sh classwork, needs: running, timeoutSec: 600 }
