@@ -4,6 +4,26 @@ Tags are set by the Lead bot on the merged release commit (`<IDEA major>.<minor>
 Kits get a release only through Engine `updateApp` (idea#374). No image is rebuilt or republished for
 a release unless these notes say so.
 
+## 1.3-0.19.5
+
+Changes since `1.2-0.19.5`. Kolibri stays on 0.19.5 and the image stays the same
+(`koenswings/kolibri:1.1-0.19.5@sha256:a5ae1caf…`).
+
+- **Live backup with hooks** (idea#403): `x-app.backup` declares `method: hook` with `fallback: stop`
+  and a 300 s hook timeout (Engine contract agent-engine-dev#325). The preHook `hooks/backup-pre.sh`
+  copies every Kolibri SQLite database with SQLite's online backup API into `data/kolibri/idea-backup/`
+  and checks each copy; borg packs them while Kolibri keeps running; the postHook `hooks/backup-post.sh`
+  removes them. While a channel import or delete runs, the preHook exits 3 (any non-zero exit falls
+  back) and the Engine takes the short stop instead (`HOOK_FALLBACK`; inside updateApp: `HOOK_FAILED`).
+  `hookExclude` keeps the live databases, `-wal`, `-shm` and `-journal` out of a hook archive; `exclude` drops `data/kolibri/process_cache`. See `docs/backup.md`.
+- **Restore:** `kolibri-start.sh` puts a backup copy in place only when its live database is missing.
+- Two read-only binds are added to the `kolibri` service (`/hooks/backup-pre.sh`, `/hooks/backup-post.sh`).
+
+**Migration:** none. Data under `./data/kolibri` stays in place. An instance on 1.2 keeps the short-stop
+backup until it is updated (the Engine reads the hook from the instance's own compose, idea#458).
+
+**Tested:** `engine_tested` 721f0fa, Engine-path Pi proof on idea03 (2026-11-15, app at f3352dd, throwaway instance on Disk B): `backupApp` ran the hook with no stop (HTTP answered throughout), `listBackup` and `verifyBackup` passed, and an in-place `restoreApp` put all six databases back from `idea-backup/` (deleted learner and renamed class came back).
+
 ## 1.2-0.19.5
 
 Changes since the last tag, `1.1-0.19.5` (a344b06). Kolibri stays on 0.19.5 and the image stays the same.

@@ -1,4 +1,4 @@
-// Release 1.2-0.19.5: version wiring, image pin and release notes. Run: node --test tests/
+// Release 1.3-0.19.5 (idea#403 backup hooks; was release-1.2.test.mjs): version wiring, image pin and release notes. Run: node --test tests/
 // Set AAD_CHECK_COMPOSE to agent-app-dev script/check-compose.mjs to also run --release --tag.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -8,12 +8,12 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const VER = '1.2-0.19.5'
+const VER = '1.3-0.19.5'
 const compose = readFileSync(join(root, 'compose.yaml'), 'utf8')
 const PIN = 'koenswings/kolibri:1.1-0.19.5@sha256:a5ae1caf3e31b5bb9f2df9c94d45c4cf6fdb8ce3cfe8730364bd6648cdbadc31'
 
-test('x-app.version and the service x-app-version label are 1.2-0.19.5', () => {
-  assert.match(compose, /^  version: "1\.2-0\.19\.5"$/m)
+test('x-app.version and the service x-app-version label are 1.3-0.19.5', () => {
+  assert.match(compose, /^  version: "1\.3-0\.19\.5"$/m)
   assert.deepEqual([...compose.matchAll(/^      x-app-version: "([^"]+)"$/gm)].map(m => m[1]), [VER])
 })
 
@@ -35,6 +35,14 @@ test('usage hook declared and mounted (idea#413)', () => {
   assert.ok(existsSync(join(root, 'hooks/usage.sh')))
 })
 
+test('release notes have a 1.3-0.19.5 section for the backup hooks (idea#403)', () => {
+  const notes = readFileSync(join(root, 'docs/releases.md'), 'utf8')
+  assert.match(notes, /^## 1\.3-0\.19\.5$/m)
+  assert.ok(notes.indexOf('## 1.3-0.19.5') < notes.indexOf('## 1.2-0.19.5'), 'newest first')
+  for (const s of ['idea#403', 'x-app.backup', 'hooks/backup-pre.sh', 'HOOK_FALLBACK', 'docs/backup.md']) assert.ok(notes.includes(s), s)
+  assert.match(readFileSync(join(root, 'docs/INDEX.md'), 'utf8'), /\(\.\/backup\.md\)/)
+})
+
 test('release notes have a 1.2-0.19.5 section covering #17, #19 and #20', () => {
   const notes = readFileSync(join(root, 'docs/releases.md'), 'utf8')
   assert.match(notes, /^## 1\.2-0\.19\.5$/m)
@@ -47,19 +55,19 @@ test('release notes have a 1.2-0.19.5 section covering #17, #19 and #20', () => 
   assert.match(readFileSync(join(root, 'docs/INDEX.md'), 'utf8'), /\(\.\/releases\.md\)/)
 })
 
-test('agent-app-dev check-compose --release --tag 1.2-0.19.5 (when AAD_CHECK_COMPOSE is set)',
+test('agent-app-dev check-compose --release --tag 1.3-0.19.5 (when AAD_CHECK_COMPOSE is set)',
   { skip: !process.env.AAD_CHECK_COMPOSE || !existsSync(process.env.AAD_CHECK_COMPOSE) }, () => {
     const r = spawnSync('node', [process.env.AAD_CHECK_COMPOSE, '--release', '--tag', VER, join(root, 'compose.yaml')], { encoding: 'utf8' })
     assert.equal(r.status, 0, r.stdout + r.stderr)
   })
 
-test('engine_tested records the idea03 on-Pi check of 47fea44 as shipped (Engine 537b16d, 1.0)', () => {
+test('engine_tested records the idea03 Engine-path backup proof of f3352dd (Engine 721f0fa, 1.0); the 47fea44 check stays noted', () => {
   const app = readFileSync(join(root, 'app.yaml'), 'utf8')
   const m = app.match(/^  engine_tested:\n    commit: "([0-9a-f]+)"\n    version: "([^"]+)"\n    date: "(\d{4}-\d{2}-\d{2})"$/m)
   assert.ok(m, 'engine_tested is a {commit, version, date} block (agent-app-dev engine-tested.mjs)')
-  assert.equal(m[1], '537b16d')
+  assert.equal(m[1], '721f0fa')
   assert.equal(m[2], '1.0')
-  assert.equal(m[3], '2026-11-12')
+  assert.equal(m[3], '2026-11-15')
   assert.match(app, /on-Pi check on idea03 at 47fea44, compose as shipped \(zeroconf on, no override\)/)
   assert.ok(!/ZEROCONF_ENABLED|zeroconf off/i.test(app), 'engine_tested no longer refers to a zeroconf-off run')
   assert.match(app, /igmp_max_memberships/)

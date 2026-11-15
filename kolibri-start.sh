@@ -18,6 +18,7 @@
 #    (kolibritasks.0001 "index queue__scheduled_time already exists"). Never delete;
 #    rename to <file>.pre-<dataver>-<UTC stamp>. Same, newer or unreadable version: no move.
 # 5. exec Kolibri as PID1 (under compose init), as root like the 0.15.5 image.
+# Before 2-5: restore-if-missing of the backup copies in $KOLIBRI_HOME/idea-backup/ (idea#403).
 set -eu
 log(){ echo "kolibri-start: $*"; }
 
@@ -32,6 +33,30 @@ vlt(){ awk -v a="$1" -v b="$2" 'BEGIN{na=split(a,x,".");nb=split(b,y,".");n=(na>
 if [ -z "${KOLIBRI_START_NO_MOUNT_CHECK:-}" ] && command -v mountpoint >/dev/null 2>&1 \
    && ! mountpoint -q "$KOLIBRI_HOME"; then
   log "ERROR: KOLIBRI_HOME $KOLIBRI_HOME is not a mounted volume; refusing to start"; exit 78
+fi
+# Restore (idea#403): a hook-mode backup archive holds consistent copies of the SQLite databases in
+# $KOLIBRI_HOME/idea-backup/ (hooks/backup-pre.sh) and leaves the live files out (hookExclude). Put a
+# copy in place only when its live database is missing; an existing live database is never replaced.
+# A stray -wal/-shm/-journal of a missing database is renamed aside first, never deleted.
+BK="$KOLIBRI_HOME/idea-backup"
+if [ -d "$BK" ]; then
+  for c in "$BK"/*.sqlite3; do
+    [ -f "$c" ] || continue
+    n=$(basename "$c")
+    if [ -e "$KOLIBRI_HOME/$n" ]; then
+      log "restore: live $n present; backup copy left unused"
+      continue
+    fi
+    rstamp=$(date -u +%Y%m%dT%H%M%SZ)
+    for s in -wal -shm -journal; do
+      if [ -e "$KOLIBRI_HOME/$n$s" ]; then
+        mv "$KOLIBRI_HOME/$n$s" "$KOLIBRI_HOME/$n$s.pre-restore-$rstamp"
+        log "restore: moved stray $n$s aside to $n$s.pre-restore-$rstamp"
+      fi
+    done
+    mv "$c" "$KOLIBRI_HOME/$n"
+    log "restore: $n restored from the backup copy in idea-backup/"
+  done
 fi
 if [ -z "${KOLIBRI_ZIP_CONTENT_PORT:-}" ]; then
   KOLIBRI_ZIP_CONTENT_PORT=8081; export KOLIBRI_ZIP_CONTENT_PORT

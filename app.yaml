@@ -3,12 +3,13 @@ idea_app_version: "1.0"
 
 compatibility:
   engine_min: "0.9.0"       # minimum Engine version this App Disk requires
+  # 1.3-0.19.5 (live backup hook, idea#403): Engine-path Pi proof on idea03, Engine 721f0fa, at f3352dd (throwaway proof27-kolibri on Disk B): backupApp method hook (backup-pre/backup-post, no stop), listBackup, verifyBackup ok, in-place restoreApp with all six databases restored from idea-backup/.
   # 1.2-0.19.5 (setup.coach, idea#462): on-Pi check on idea03 at 47fea44, compose as shipped (zeroconf on, no override), throwaway project kidk21: setup.coach 5/4, collector 4, 0 restarts.
   # Needs net.ipv4.igmp_max_memberships above the host's Docker network count (docs/releases.md Known issue); idea03 had 1024.
   engine_tested:
-    commit: "537b16d"
+    commit: "721f0fa"
     version: "1.0"
-    date: "2026-11-12"
+    date: "2026-11-15"
 
 services:
   - name: kolibri
@@ -16,7 +17,7 @@ services:
     upstream: learningequality/kolibri
     upstream_tag: "0.19.5"
     image: koenswings/kolibri
-    current_version: "1.2-0.19.5"
+    current_version: "1.3-0.19.5"
     monitors:
       - kind: http-scrape
         url: "https://learningequality.org/r/kolibri-latest-whl"

@@ -10,7 +10,7 @@ x-app:
   category: education
   icon: icon.png
   author: Koen Swings
-  version: "1.2-0.19.5"
+  version: "1.3-0.19.5"
   instanceName: kolibri
   # updateApp (idea#351, agent-app-dev#23). healthTimeout: integer seconds.
   # Measured on idea04 (Pi 4, 2026-10-28, idea#351): 0.15.5 -> 0.19.5 first start 373-381 s to /api/public/info/ 200 (34.5k content nodes, db 125 MB). About 2.4x margin, since a field Kolibri with all 14 channels has a larger database.
@@ -29,6 +29,66 @@ x-app:
     service: kolibri
     command: /hooks/usage.sh
     timeoutS: 60
+  # idea#403: live backup with hooks (Engine x-app.backup, agent-engine-dev#325). Kolibri keeps
+  # running: the preHook copies every SQLite database with SQLite's online backup API into
+  # data/kolibri/idea-backup/ (integrity-checked), borg packs the folder, and the postHook removes
+  # the copies. While a channel import (or channel delete) runs, the preHook exits 3 and the Engine
+  # takes the short stop instead (fallback: stop, proposal §3.5). kolibri-start.sh restores a copy
+  # only when its live database is missing. See docs/backup.md.
+  backup:
+    method: hook
+    fallback: stop
+    hookTimeout: 300
+    preHook:
+      service: kolibri
+      command: /hooks/backup-pre.sh
+    postHook:
+      service: kolibri
+      command: /hooks/backup-post.sh
+    # Always out: Kolibri's diskcache (SQLite files written live, rebuilt on start).
+    exclude:
+      - data/kolibri/process_cache
+    # Out of a hook archive only (the copies replace them). On HOOK_FALLBACK the Engine drops this
+    # list and packs the stopped live files. No globs (#325): one entry per file, the six
+    # Kolibri 0.19.5 databases (hooks/backup-pre.sh KNOWN) with their -wal, -shm and -journal
+    # (a rollback journal can appear if a database ever leaves WAL mode).
+    hookExclude:
+      - data/kolibri/db.sqlite3
+      - data/kolibri/db.sqlite3-wal
+      - data/kolibri/db.sqlite3-shm
+      - data/kolibri/db.sqlite3-journal
+      - data/kolibri/job_storage.sqlite3
+      - data/kolibri/job_storage.sqlite3-wal
+      - data/kolibri/job_storage.sqlite3-shm
+      - data/kolibri/job_storage.sqlite3-journal
+      - data/kolibri/notifications.sqlite3
+      - data/kolibri/notifications.sqlite3-wal
+      - data/kolibri/notifications.sqlite3-shm
+      - data/kolibri/notifications.sqlite3-journal
+      - data/kolibri/networklocation.sqlite3
+      - data/kolibri/networklocation.sqlite3-wal
+      - data/kolibri/networklocation.sqlite3-shm
+      - data/kolibri/networklocation.sqlite3-journal
+      - data/kolibri/sessions.sqlite3
+      - data/kolibri/sessions.sqlite3-wal
+      - data/kolibri/sessions.sqlite3-shm
+      - data/kolibri/sessions.sqlite3-journal
+      - data/kolibri/syncqueue.sqlite3
+      - data/kolibri/syncqueue.sqlite3-wal
+      - data/kolibri/syncqueue.sqlite3-shm
+      - data/kolibri/syncqueue.sqlite3-journal
+    # idea#446 verifyBackup. An archive does not say whether it is a hook archive (copies, no live
+    # dbs) or a HOOK_FALLBACK one (live dbs, no copies), so every entry holds for both. No database
+    # is checked yet: that needs the Engine to tag each archive with its hook result (Axle follow-up).
+    # A path with a slash or a leading dot is instance-relative; a bare name means data/<name>.
+    verify:
+      present:
+        - .env
+        - data/kolibri/.data_version
+        - data/kolibri/options.ini
+        - hooks/backup-pre.sh
+      absent:
+        - data/kolibri/process_cache
 services:
   kolibri:
     # Pinned to the multi-platform INDEX digest (idea#322), never a per-platform manifest digest:
@@ -36,7 +96,7 @@ services:
     # 46da985) pulls by this ref, saves by repo:tag and verifies the digest after load.
     image: koenswings/kolibri:1.1-0.19.5@sha256:a5ae1caf3e31b5bb9f2df9c94d45c4cf6fdb8ce3cfe8730364bd6648cdbadc31
     labels:
-      x-app-version: "1.2-0.19.5"
+      x-app-version: "1.3-0.19.5"
     init: true
     # r40: image CMD daemonized then tailed the log; Bus EXITED left only the tailer → Docker Up
     # while :port was dead. Foreground makes Kolibri PID1; healthcheck + restart policy.
@@ -62,6 +122,8 @@ services:
       - ./data/kolibri:/root/.kolibri
       - ./kolibri-start.sh:/idea/kolibri-start.sh:ro
       - ./hooks/usage.sh:/hooks/usage.sh:ro
+      - ./hooks/backup-pre.sh:/hooks/backup-pre.sh:ro
+      - ./hooks/backup-post.sh:/hooks/backup-post.sh:ro
     network_mode: "host"        
     #ports:
     #  - ${port}:8080
