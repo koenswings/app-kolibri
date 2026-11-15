@@ -22,6 +22,8 @@ Changes since `1.2-0.19.5`. Kolibri stays on 0.19.5 and the image stays the same
 **Migration:** none. Data under `./data/kolibri` stays in place. An instance on 1.2 keeps the short-stop
 backup until it is updated (the Engine reads the hook from the instance's own compose, idea#458).
 
+**Tested:** `engine_tested` 721f0fa, Engine-path Pi proof on idea03 (2026-11-15, app at f3352dd, throwaway instance on Disk B): `backupApp` ran the hook with no stop (HTTP answered throughout), `listBackup` and `verifyBackup` passed, and an in-place `restoreApp` put all six databases back from `idea-backup/` (deleted learner and renamed class came back).
+
 ## 1.2-0.19.5
 
 Changes since the last tag, `1.1-0.19.5` (a344b06). Kolibri stays on 0.19.5 and the image stays the same.
