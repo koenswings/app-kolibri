@@ -19,10 +19,13 @@ services:
     image: koenswings/kolibri
     current_version: "1.3-0.19.5"
     monitors:
-      - kind: http-scrape
-        url: "https://learningequality.org/r/kolibri-latest-whl"
-        pattern: "kolibri-(?P<version>[\\d.]+(\\.dev\\d+)?)"
-        notes: "Kolibri is distributed as a .whl (Python wheel). Monitor the latest release page."
+      - kind: pypi
+        package: kolibri
+        notes: >
+          Kolibri is published on PyPI. kind pypi reads https://pypi.org/pypi/kolibri/json
+          (idea#543). The old http-scrape URL https://learningequality.org/r/kolibri-latest-whl
+          now returns 404. Alternative supported by check-app-versions.sh: kind github-release
+          with repo learningequality/kolibri.
 
 # Demo pack + hook (engine-dev#369, pack v1). setupDemo writes x-app.demo on the
 # instance compose; the app bundle does not ship that key. The pack pin is the
