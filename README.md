@@ -1,6 +1,12 @@
 # app-kolibri
 Compose file for the Kolibri app
 
+Kolibri data lives in `./data/kolibri` (bind-mounted at `/root/.kolibri`). App
+data uses this relative `./data` bind, never a Docker named volume
+([idea#141](https://github.com/koenswings/idea/issues/141)). Backups pack
+channel content; a pre-update snapshot excludes `data/kolibri/content`
+([docs/backup.md](docs/backup.md)).
+
 ## Default accounts
 
 `admin` / `admin911!` (IDEA `<account name>911!` scheme). See [docs/accounts.md](docs/accounts.md).

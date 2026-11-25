@@ -60,6 +60,26 @@ timestamp, and the hook result is recorded only on the backup operation (`op.arg
 follow-up (Axle) that tags each archive with its hook result. Until then, use
 `listBackup <instance> <disk> <archive>` to see whether an archive has the copies.
 
+## Pre-update snapshots (`snapshotExclude`)
+
+A Backup Disk archive **does pack channel content** (`data/kolibri/content`). The
+pre-update snapshot taken by `updateApp` does not: compose.yaml sets
+
+```yaml
+x-app:
+  snapshotExclude:
+    - data/kolibri/content   # channel content: large and re-importable
+```
+
+Learner data lives in the SQLite databases under `data/kolibri/` (not in
+`content/`). Those databases stay in the snapshot so a rollback can restore
+them. Channel files are content-addressed and can be imported again.
+
+`updateApp` also merges `x-app.backup.exclude` (`data/kolibri/process_cache`)
+into that snapshot list. Paths must be under `data/`, with no globs, and at
+most 32 entries (Engine `backupExclude.ts`). See agent-app-dev
+`docs/compose-conventions.md`.
+
 ## Tests
 
 `tests/test_backup_hook.py` (real WAL databases, a writer committing during the copy, import cases,
