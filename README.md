@@ -1,6 +1,14 @@
 # app-kolibri
 Compose file for the Kolibri app
 
+Current release: **1.3-0.19.5** (`x-app.version` and git tag; also `1.2-0.19.5`, `1.1-0.19.5`, `1.0`). A GitHub Release “IDEA Kolibri demo pack v4” (`idea-demo-kolibri-v4`) is the demo pack, not a later App version.
+
+Kolibri data lives in `./data/kolibri` (bind-mounted at `/root/.kolibri`). App
+data uses this relative `./data` bind, never a Docker named volume
+([idea#141](https://github.com/koenswings/idea/issues/141)). Backups pack
+channel content; a pre-update snapshot excludes `data/kolibri/content`
+([docs/backup.md](docs/backup.md)).
+
 ## Default accounts
 
 `admin` / `admin911!` (IDEA `<account name>911!` scheme). See [docs/accounts.md](docs/accounts.md).

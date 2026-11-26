@@ -10,6 +10,6 @@ Update this file whenever an authoritative doc is added or significantly revised
 |-----|---------|
 | [accounts.md](./accounts.md) | Default accounts and `<account>911!` passwords; demo accounts (IDEA Demo School, Grade 5) |
 | [kolibri-start.md](./kolibri-start.md) | Entrypoint: what replaces the official image entrypoint, job_storage update rule, zip-content port (port_zip), restart policy |
-| [backup.md](./backup.md) | idea#403 backup hooks (`x-app.backup` method hook, `hooks/backup-pre.sh` / `backup-post.sh`, restore in kolibri-start.sh) |
+| [backup.md](./backup.md) | idea#403 backup hooks (`x-app.backup` method hook, `hooks/backup-pre.sh` / `backup-post.sh`, restore in kolibri-start.sh); `snapshotExclude` of `data/kolibri/content` on updateApp |
 | [usage-hook.md](./usage-hook.md) | idea#413 usage hook (`x-app.usage`, `hooks/usage.sh`, day/sample JSON) |
 | [releases.md](./releases.md) | Release notes per tagged version (1.3-0.19.5, 1.2-0.19.5) |
